@@ -1,5 +1,8 @@
 <?php
 
+require_once __DIR__ . "/../../../../../../../lib/view.php";
+require_once __DIR__ . "/../../../../../../../lib/money.php";
+
 if (!empty($order)) {
 
     $totalProducts = 0;
@@ -34,6 +37,7 @@ if (!empty($order)) {
     </h6>
     <span class="float-end text-orange <?php if (empty($order)): ?> d-none <?php endif ?>  btn" id="cleanListProduct" <?php if (!empty($order)): ?>idOrder="<?php echo $order->id_order ?>" <?php else: ?> idOrder <?php endif ?>><i class="fas fa-broom"></i> limpiar</span>
     <div class="clearfix"></div>
+    <div class="table-responsive">
     <table class="table table-striped table-borderless">
         <thead>
             <tr class="text-center">
@@ -52,20 +56,20 @@ if (!empty($order)) {
                     <tr>
                         <td>
                             <div>
-                                <img src="<?php echo urldecode($value->img_product) ?>" class="me-auto rounded mt-2 float-start" style="width:60px !important; height:60px !important">
+                                <img src="<?php echo View::url($value->img_product) ?>" class="me-auto rounded mt-2 float-start" style="width:60px !important; height:60px !important">
                                 <div class="ms-2 float-start">
-                                    <span class="badge badge-default backColor rounded" style="font-size:10px"><?php echo urldecode($value->sku_product) ?></span>
+                                    <span class="badge badge-default backColor rounded" style="font-size:10px"><?php echo View::text($value->sku_product) ?></span>
                                     <?php if ($value->discount_product > 0):
                                         $price_purchase = $original_price - ($original_price * ($value->discount_product / 100));
                                     ?>
                                         <span class="badge badge-default bg-red rounded ms-1" style="font-size:10px"><?php echo $value->discount_product ?>%</span>
-                                        <h6 class="font-weight-bold  mb-0 text-muted"><strong><?php echo urldecode($value->title_product) ?></strong></h6>
-                                        <small>$ <?php echo number_format($price_purchase, 2) ?> <span class="ms-1 text-red" style="font-size:12px"><s>$ <?php echo  number_format($original_price, 2) ?></s></span></small>
+                                        <h6 class="font-weight-bold  mb-0 text-muted"><strong><?php echo View::text($value->title_product) ?></strong></h6>
+                                        <small>$ <?php echo Money::amount($price_purchase) ?> <span class="ms-1 text-red" style="font-size:12px"><s>$ <?php echo  Money::amount($original_price) ?></s></span></small>
                                     <?php else:
                                         $price_purchase = $original_price;
                                     ?>
-                                        <h6 class="font-weight-bold  mb-0 text-muted"><strong><?php echo urldecode($value->title_product) ?></strong></h6>
-                                        <small>$ <?php echo  number_format($price_purchase, 2) ?></small>
+                                        <h6 class="font-weight-bold  mb-0 text-muted"><strong><?php echo View::text($value->title_product) ?></strong></h6>
+                                        <small>$ <?php echo  Money::amount($price_purchase) ?></small>
                                     <?php endif ?>
                                 </div>
                             </div>
@@ -84,7 +88,7 @@ if (!empty($order)) {
                             </div>
                         </td>
                         <td>
-                            <h6 class="text-center my-3 pricePurchase pricePurchase_<?php echo $value->id_product ?>" pricePurchase="<?php echo $value->subtotal_sale ?>" originalPricePurchase="<?php echo $original_price ?>">$ <?php echo number_format($value->subtotal_sale, 2) ?></h6>
+                            <h6 class="text-center my-3 pricePurchase pricePurchase_<?php echo $value->id_product ?>" pricePurchase="<?php echo (int) round((float) $value->subtotal_sale) ?>" originalPricePurchase="<?php echo (int) round((float) $original_price) ?>">$ <?php echo Money::amount($value->subtotal_sale) ?></h6>
                         </td>
                         <td class="text-center">
                             <button type="button" class="btn btn-sm rounded ms-1 mt-2 py-2 px-3 bg-red deleteSale deleteSale_<?php echo $value->id_product ?>" idSale="<?php echo $value->id_sale ?>" taxSale="<?php echo explode("_", $value->tax_product)[1] ?>" discountSale="<?php echo $value->discount_product ?>">
@@ -96,4 +100,5 @@ if (!empty($order)) {
             <?php endif ?>
         </tbody>
     </table>
+    </div>
 </div>

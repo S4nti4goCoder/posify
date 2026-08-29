@@ -1,6 +1,17 @@
 <?php
 
-$url = "clients";
+require_once __DIR__ . "/../../../../../../../lib/view.php";
+
+require_once __DIR__ . "/../../../../../../../lib/walkin.client.php";
+
+/*=============================================
+Only the clients of the branch being worked in. This used to ask for every
+client in the system, so a cashier saw the other branches customers too.
+=============================================*/
+
+$currentOffice = (int) $_SESSION["admin"]->id_office_admin;
+
+$url    = "clients?linkTo=id_office_client&equalTo=" . $currentOffice;
 $method = "GET";
 $fields = array();
 
@@ -11,6 +22,28 @@ if ($clients->status == 200) {
 } else {
     $clients = array();
 }
+
+/*=============================================
+The walk in customer, so a sale can be charged without asking the buyer to
+register. Created for this branch the first time it is needed.
+=============================================*/
+
+$walkInClient = WalkInClient::idFor($currentOffice, $_SESSION["admin"]->token_admin);
+
+if ($walkInClient !== null && empty(array_filter($clients, fn($c) => (int) $c->id_client === $walkInClient))) {
+
+    $refresh = CurlController::request($url, $method, $fields);
+    $clients = $refresh->status == 200 ? $refresh->results : $clients;
+}
+
+/*=============================================
+Which client the selector starts on: the one already on the order, or the
+walk in customer when the order has none yet.
+=============================================*/
+
+$selectedClient = !empty($order) && (int) $order->id_client_order > 0
+    ? (int) $order->id_client_order
+    : $walkInClient;
 
 ?>
 
@@ -23,11 +56,9 @@ if ($clients->status == 200) {
                 <option value="">Buscar</option>
                 <?php if (!empty($clients)): ?>
                     <?php foreach ($clients as $key => $value): ?>
-                        <?php if (!empty($order)): ?>
-                            <option value="<?php echo $value->id_client ?>" <?php if ($order->id_client_order == $value->id_client): ?> selected <?php endif ?>><?php echo urldecode($value->name_client) . " " . urldecode($value->surname_client) . " " . urldecode($value->cc_client) ?></option>
-                        <?php else: ?>
-                            <option value="<?php echo $value->id_client ?>"><?php echo urldecode($value->name_client) . " " . urldecode($value->surname_client) . " " . urldecode($value->cc_client) ?></option>
-                        <?php endif ?>
+                        <option
+                            value="<?php echo $value->id_client ?>"
+                            <?php if ((int) $value->id_client === (int) $selectedClient): ?> selected <?php endif ?>><?php echo View::text($value->name_client) . " " . View::text($value->surname_client) . " " . View::text($value->cc_client) ?></option>
                     <?php endforeach ?>
                 <?php endif ?>
             </select>
@@ -37,7 +68,7 @@ if ($clients->status == 200) {
         <div class="form-group">
             <label class="mb-1" for="seller">Vendedor</label>
             <div class="input-group">
-                <input type="text" readonly class="form-control rounded-start bg-light" id="seller" idAdmin="<?php echo $_SESSION["admin"]->id_admin ?>" value="<?php echo urldecode($_SESSION["admin"]->name_admin) ?>">
+                <input type="text" readonly class="form-control rounded-start bg-light" id="seller" idAdmin="<?php echo $_SESSION["admin"]->id_admin ?>" value="<?php echo View::text($_SESSION["admin"]->name_admin) ?>">
                 <span class="input-group-text rounded-end bg-light"><i class="fas fa-user-tie"></i></span>
             </div>
         </div>

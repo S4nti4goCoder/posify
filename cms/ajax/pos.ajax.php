@@ -1,5 +1,14 @@
 <?php
 
+require_once __DIR__ . "/../../lib/csrf.guard.php";
+require_once __DIR__ . "/../../lib/money.php";
+
+CsrfGuard::enforce();
+
+require_once __DIR__ . "/../../lib/office.guard.php";
+require_once __DIR__ . "/../../lib/view.php";
+require_once __DIR__ . "/../../lib/inventory.php";
+require_once __DIR__ . "/../../lib/walkin.client.php";
 require_once "../controllers/curl.controller.php";
 require_once "../controllers/template.controller.php";
 
@@ -9,7 +18,7 @@ class PosController
 {
 
     /*=============================================
-	    Función para cargar productos
+	    Load products
 	=============================================*/
     public $limit;
     public $startAt;
@@ -17,87 +26,67 @@ class PosController
     public $search;
     public $idOffice;
 
-    public function loadProducts()
+    /**
+     * The catalogue of one branch.
+     *
+     * The generic relations endpoint cannot reach this any more: every join it
+     * builds starts from the first table, and the stock lives in its own now.
+     *
+     * @return array{0:array,1:int} rows and how many pages they make
+     */
+    private function catalogue(): array
     {
-        if ($this->category == "all") {
-            if ($this->search == "") {
-                $url = "relations?rel=products,categories&type=product,category&linkTo=id_office_product,status_product&equalTo=" . $this->idOffice . ",1&orderBy=id_product&orderMode=DESC&startAt=" . $this->startAt . "&endAt=" . $this->limit;
-                $method = "GET";
-                $fields = array();
+        $db    = Connection::connect();
+        $where = "s.id_office_stock = :office AND p.status_product = 1";
+        $args  = [":office" => (int) $this->idOffice];
 
-                $products = CurlController::request($url, $method, $fields);
+        if ($this->category != "all") {
 
-                if ($products->status == 200) {
-
-                    $products = $products->results;
-
-                    /*=============================================
-				    Traer Total de productos
-			    =============================================*/
-                    $url = "relations?rel=products,categories&type=product,category&linkTo=id_office_product,status_product&equalTo=" . $this->idOffice . ",1";
-
-                    $totalPageProducts = ceil(CurlController::request($url, $method, $fields)->total / $this->limit);
-                } else {
-                    $products = array();
-                    $totalPageProducts = 0;
-                }
-            } else {
-
-                /*=============================================
-				Columnas de búsqueda
-				=============================================*/
-                $linkTo = ["sku_product", "title_product"];
-
-                /*=============================================
-				Itineración de búsqueda
-				=============================================*/
-                foreach ($linkTo as $key => $value) {
-
-                    $url = "relations?rel=products,categories&type=product,category&linkTo=" . $value . ",id_office_product,status_product&search=" . str_replace(" ", "_", $this->search) . "," . $this->idOffice . ",1&orderBy=id_product&orderMode=DESC&startAt=" . $this->startAt . "&endAt=" . $this->limit;
-
-                    $method = "GET";
-                    $fields = array();
-
-                    $products = CurlController::request($url, $method, $fields);
-
-                    if ($products->status == 200) {
-                        $products = $products->results;
-
-                        /*=============================================
-						Traer Total de productos
-						=============================================*/
-                        $url = "relations?rel=products,categories&type=product,category&linkTo=" . $value . ",id_office_product,status_product&search=" . str_replace(" ", "_", $this->search) . "," . $this->idOffice . ",1";
-
-                        $totalPageProducts = ceil(CurlController::request($url, $method, $fields)->total / $this->limit);
-                        break;
-                    } else {
-                        $products = array();
-                        $totalPageProducts = 0;
-                    }
-                }
-            }
-        } else {
-            $url = "relations?rel=products,categories&type=product,category&linkTo=id_office_product,status_product,id_category_product&equalTo=" . $this->idOffice . ",1," . $this->category . "&orderBy=id_product&orderMode=DESC&startAt=" . $this->startAt . "&endAt=" . $this->limit;
-            $method = "GET";
-            $fields = array();
-
-            $products = CurlController::request($url, $method, $fields);
-
-            if ($products->status == 200) {
-                $products = $products->results;
-                /*=============================================
-				Traer Total de productos
-				=============================================*/
-                $url = "relations?rel=products,categories&type=product,category&linkTo=id_office_product,status_product,id_category_product&equalTo=" . $this->idOffice . ",1," . $this->category;
-
-                $totalPageProducts = ceil(CurlController::request($url, $method, $fields)->total / $this->limit);
-            } else {
-
-                $products = array();
-                $totalPageProducts = 0;
-            }
+            $where .= " AND p.id_category_product = :category";
+            $args[":category"] = (int) $this->category;
         }
 
+        if ($this->search != "") {
+
+            $where .= " AND (p.title_product LIKE :title OR p.sku_product LIKE :sku)";
+            $args[":title"] = "%" . $this->search . "%";
+            $args[":sku"]   = "%" . $this->search . "%";
+        }
+
+        $from = " FROM products p
+                  INNER JOIN stocks s ON s.id_product_stock = p.id_product
+                  LEFT JOIN categories c ON c.id_category = p.id_category_product
+                  WHERE " . $where;
+
+        $stmt = $db->prepare("SELECT COUNT(*)" . $from);
+        $stmt->execute($args);
+        $total = (int) $stmt->fetchColumn();
+
+        $stmt = $db->prepare(
+            "SELECT p.*, c.title_category, s.qty_stock" . $from .
+            " ORDER BY p.id_product DESC LIMIT :startAt, :endAt"
+        );
+
+        foreach ($args as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+
+        $stmt->bindValue(":startAt", (int) $this->startAt, PDO::PARAM_INT);
+        $stmt->bindValue(":endAt", (int) $this->limit, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return [
+            $stmt->fetchAll(PDO::FETCH_OBJ),
+            $this->limit > 0 ? (int) ceil($total / $this->limit) : 0,
+        ];
+    }
+
+    public function loadProducts()
+    {
+        list($products, $totalPageProducts) = $this->catalogue();
+
+        $method = "GET";
+        $fields = array();
         $htmlProducts = "";
 
         if (!empty($products)) {
@@ -108,22 +97,24 @@ class PosController
                     $htmlProducts .= '<div class="position-absolute small bg-red p-1 shadow-sm rounded" style="top:4px; left:4px; font-size:10px">' . $value->discount_product . '% OFF</div>';
                 }
                 $htmlProducts .= '<div class="position-absolute small bg-white p-1 shadow-sm rounded" style="top:4px; right:4px; font-size:10px">' . $value->sku_product . '</div>
-						<img src="' . urldecode($value->img_product) . '" class="card-img-top px-5 py-3 mx-auto" style="width:200px !important">
+						<img src="' . View::url($value->img_product) . '" class="card-img-top px-5 py-3 mx-auto" style="width:200px !important">
 						<div class="card-body">
-							<h6 class="font-weight-bold text-gray samll">' . urldecode($value->title_category) . '</h6>
-							<h6 class="card-title pb-2 font-weight-bold">' . urldecode($value->title_product) . '</h6>
+							<h6 class="font-weight-bold text-gray samll">' . View::text($value->title_category) . '</h6>
+							<h6 class="card-title pb-2 font-weight-bold">' . View::text($value->title_product) . '</h6>
 							<div class="d-flex justify-content-between">';
-                if ($value->stock_product < 50) {
+                $colorStock = "bg-secondary";
+
+                if ($value->qty_stock < 50) {
                     $colorStock = "bg-maroon";
                 }
-                if ($value->stock_product >= 50 && $value->stock_product < 100) {
+                if ($value->qty_stock >= 50 && $value->qty_stock < 100) {
                     $colorStock = "bg-indigo";
                 }
-                if ($value->stock_product >= 100) {
+                if ($value->qty_stock >= 100) {
                     $colorStock = "bg-teal";
                 }
                 $htmlProducts .= '<div class="card-text small h6 badge badge-default pb-0 ' . $colorStock . '" style="font-size:10px; padding-top:6px">
-									' . $value->stock_product . '
+									' . $value->qty_stock . '
 								</div>';
                 $url = "purchases?linkTo=id_product_purchase&equalTo=" . $value->id_product . "&select=price_purchase";
                 $price = CurlController::request($url, $method, $fields);
@@ -136,10 +127,10 @@ class PosController
                     $price = 0;
                 }
                 if ($value->discount_product > 0) {
-                    $htmlProducts .= '<span class="small ms-auto pe-1 h6 mt-1 text-red font-weight-bold" style="font-size:12px"><s>$ ' . number_format($price, 2) . '</s></span>
-									<div class="small h6 mt-1 textColor font-weight-bold"><strong>$ ' . number_format($discount, 2) . '</strong></div>';
+                    $htmlProducts .= '<span class="small ms-auto pe-1 h6 mt-1 text-red font-weight-bold" style="font-size:12px"><s>$ ' . Money::amount($price) . '</s></span>
+									<div class="small h6 mt-1 textColor font-weight-bold"><strong>$ ' . Money::amount($discount) . '</strong></div>';
                 } else {
-                    $htmlProducts .= '<div class="small h6 mt-1 textColor font-weight-bold"><strong>$ ' . number_format($price, 2) . '</strong></div>';
+                    $htmlProducts .= '<div class="small h6 mt-1 textColor font-weight-bold"><strong>$ ' . Money::amount($price) . '</strong></div>';
                 }
                 $htmlProducts .= '</div>
 						</div>
@@ -156,7 +147,7 @@ class PosController
     }
 
     /*=============================================
-	    Crear nueva orden
+	    Create a new order
     =============================================*/
     public $token;
     public $seller;
@@ -165,7 +156,7 @@ class PosController
     {
 
         /*=============================================
-		Validar primero que exista caja del día abierta
+		A cash session must be open for today
 		=============================================*/
         $url = "cashs?linkTo=date_created_cash,status_cash,id_office_cash&equalTo=" . date("Y-m-d") . ",1," . $this->idOffice . "&select=status_cash";
         $method = "GET";
@@ -179,7 +170,7 @@ class PosController
         } else {
 
             /*====================================================
-			Validar que la caja del día anterior haya sido cerrada
+			Yesterday cash session must be closed
 			====================================================*/
             $yesterday = date("Y-m-d", strtotime(date("Y-m-d") . "- 1 days"));
 
@@ -196,20 +187,20 @@ class PosController
         }
 
         /*=============================================
-		Crear número de transacción
+		Build the transaction number
 		=============================================*/
         $transaction_order = TemplateController::genNumCode(12);
 
 
         /*=============================================
-		No repetir Número de transacción en BD
+		The transaction number must not repeat
 		=============================================*/
         $validate = TemplateController::transValidate($transaction_order);
 
         if ($validate) {
 
             /*=============================================
-			Crear nueva orden
+			Create a new order
 			=============================================*/
             $url = "orders?&token=" . $this->token . "&table=admins&suffix=admin";
             $method = "POST";
@@ -217,6 +208,9 @@ class PosController
                 "transaction_order" => $transaction_order,
                 "id_admin_order" => $this->seller,
                 "id_office_order" => $this->idOffice,
+                // the order starts on the walk in customer, which is what the
+                // selector shows anyway; leaving it at 0 points at no client
+                "id_client_order" => WalkInClient::idFor((int) $this->idOffice, $this->token) ?? 0,
                 "status_order" => "Pendiente",
                 "date_created_order" => date("Y-m-d")
             );
@@ -236,7 +230,7 @@ class PosController
         } else {
 
             /*=============================================
-			Repetir proceso
+			Retry
 			=============================================*/
             $ajax = new PosController();
             $ajax->token = $this->token;
@@ -247,7 +241,7 @@ class PosController
     }
 
     /*=============================================
-	Actualizar orden
+	Update the order
 	=============================================*/
     public $idOrder;
     public $idClient;
@@ -279,7 +273,7 @@ class PosController
     }
 
     /*=============================================
-	Agregar nuevo cliente
+	Add a new client
 	=============================================*/
     public $name_client;
     public $surname_client;
@@ -313,7 +307,7 @@ class PosController
     }
 
     /*=============================================
-	Agregar producto a la lista de órdenes
+	Add a product to the order
 	=============================================*/
     public $idProduct;
 
@@ -327,13 +321,13 @@ class PosController
 
         if ($getProduct->status == 200) {
             $product = $getProduct->results[0];
-            if ($product->stock_product == 0) {
+            if (Inventory::available((int) $this->idProduct, (int) $this->idOffice) < 1) {
                 echo "error stock";
                 return;
             } else {
 
                 /*=============================================
-				Validar que el producto no exista en esa orden
+				The product must not already be in the order
 				=============================================*/
                 $url = "sales?linkTo=id_order_sale,id_product_sale&equalTo=" . $this->idOrder . "," . $this->idProduct . "&select=id_sale";
                 $method = "GET";
@@ -347,7 +341,7 @@ class PosController
                 }
 
                 /*=============================================
-				Subir a ventas
+				Add to sales
 				=============================================*/
                 if ($product->discount_product > 0) {
                     $price_purchase = $product->price_purchase - ($product->price_purchase * ($product->discount_product / 100));
@@ -376,21 +370,21 @@ class PosController
 
                 if ($createSale->status == 200) {
                     /*=============================================
-					Devolver HTML
+					Return the HTML
 					=============================================*/
                     $html = '<tr>			
 								<td>
 									<div>
-										<img src="' . urldecode($product->img_product) . '" class="me-auto rounded mt-2 float-start"style="width:60px !important; height:60px !important">
+										<img src="' . View::url($product->img_product) . '" class="me-auto rounded mt-2 float-start"style="width:60px !important; height:60px !important">
 										<div class="ms-2 float-start">
-											<span class="badge badge-default backColor rounded" style="font-size:10px">' . urldecode($product->sku_product) . '</span>';
+											<span class="badge badge-default backColor rounded" style="font-size:10px">' . View::text($product->sku_product) . '</span>';
                     if ($product->discount_product > 0) {
                         $html .= '<span class="badge badge-default bg-red rounded ms-1" style="font-size:10px">' . $product->discount_product . '%</span>
-												<h6 class="font-weight-bold  mb-0 text-muted"><strong>' . urldecode($product->title_product) . '</strong></h6>
-												<small>$ ' . number_format($price_purchase, 2) . ' <span class="ms-1 text-red" style="font-size:12px"><s>$ ' . number_format($product->price_purchase, 2) . ' </s></span></small>';
+												<h6 class="font-weight-bold  mb-0 text-muted"><strong>' . View::text($product->title_product) . '</strong></h6>
+												<small>$ ' . Money::amount($price_purchase) . ' <span class="ms-1 text-red" style="font-size:12px"><s>$ ' . Money::amount($product->price_purchase) . ' </s></span></small>';
                     } else {
-                        $html .= '<h6 class="font-weight-bold  mb-0 text-muted"><strong>' . urldecode($product->title_product) . '</strong></h6>
-												<small>$ ' . number_format($product->price_purchase, 2) . '</small>';
+                        $html .= '<h6 class="font-weight-bold  mb-0 text-muted"><strong>' . View::text($product->title_product) . '</strong></h6>
+												<small>$ ' . Money::amount($product->price_purchase) . '</small>';
                     }
                     $html .= '</div>
 									</div>
@@ -409,7 +403,7 @@ class PosController
 									</div>							
 								</td>
 								<td>
-									<h6 class="text-center my-3 pricePurchase pricePurchase_' . $product->id_product . '" pricePurchase="' . $product->price_purchase . '" originalPricePurchase="' . $product->price_purchase . '">$ ' . number_format($product->price_purchase, 2) . '</h6>
+									<h6 class="text-center my-3 pricePurchase pricePurchase_' . $product->id_product . '" pricePurchase="' . (int) round((float) $product->price_purchase) . '" originalPricePurchase="' . (int) round((float) $product->price_purchase) . '">$ ' . Money::amount($product->price_purchase) . '</h6>
 								</td>
 								<td class="text-center">
 									<button type="button" class="btn btn-sm rounded ms-1 mt-2 py-2 px-3 bg-red deleteSale deleteSale_' . $product->id_product . '" idSale="' . $createSale->results->lastId . '" taxSale="' . explode("_", $product->tax_product)[1] . '" discountSale="' . $product->discount_product . '">
@@ -426,7 +420,7 @@ class PosController
     }
 
     /*=============================================
-	Actualizar Cantidad
+	Update quantity
 	=============================================*/
     public $idSaleUpdate;
     public $qtySale;
@@ -434,6 +428,23 @@ class PosController
 
     public function updateSale()
     {
+
+        /*=============================================
+        A quantity above what is on hand used to go straight through
+        =============================================*/
+
+        $sale = CurlController::request("sales?linkTo=id_sale&equalTo=" . $this->idSaleUpdate . "&select=id_product_sale", "GET", array());
+
+        if (!empty($sale) && $sale->status == 200) {
+
+            $available = Inventory::available((int) $sale->results[0]->id_product_sale, (int) OfficeGuard::current());
+
+            if ((int) $this->qtySale > $available) {
+
+                echo "error stock " . $available;
+                return;
+            }
+        }
 
         $url = "sales?id=" . $this->idSaleUpdate . "&nameId=id_sale&token=" . $this->token . "&table=admins&suffix=admin";
         $method = "PUT";
@@ -454,13 +465,13 @@ class PosController
     }
 
     /*=============================================
-	Remover Venta
+	Remove a sale
 	=============================================*/
     public $idSaleDelete;
     public function deleteSale()
     {
         /*=============================================
-		Validar que la venta no esté finalizada
+		The sale must not be completed
 		=============================================*/
         $url = "sales?linkTo=id_sale,status_sale&equalTo=" . $this->idSaleDelete . ",Completada";
         $method = "GET";
@@ -472,7 +483,7 @@ class PosController
             return;
         } else {
             /*=============================================
-			Eliminar venta
+			Delete a sale
 			=============================================*/
             $url = "sales?id=" . $this->idSaleDelete . "&nameId=id_sale&token=" . $this->token . "&table=admins&suffix=admin";
             $method = "DELETE";
@@ -488,13 +499,13 @@ class PosController
     }
 
     /*=============================================
-	Remover todas las Ventas
+	Remove every sale
 	=============================================*/
     public $idOrderSale;
     public function deleteAllSale()
     {
         /*=============================================
-		Validar que la venta no esté finalizada
+		The sale must not be completed
 		=============================================*/
         $url = "sales?linkTo=id_order_sale,status_sale&equalTo=" . $this->idOrderSale . ",Pendiente";
         $method = "GET";
@@ -505,7 +516,7 @@ class PosController
             $countDeleteSale = 0;
             foreach ($getSale->results as $key => $value) {
                 /*=============================================
-				Eliminar venta
+				Delete a sale
 				=============================================*/
                 $url = "sales?id=" . $value->id_sale . "&nameId=id_sale&token=" . $this->token . "&table=admins&suffix=admin";
                 $method = "DELETE";
@@ -525,13 +536,13 @@ class PosController
     }
 
     /*=============================================
-	Remover Órden
+	Remove the order
 	=============================================*/
     public $idOrderDelete;
     public function deleteOrder()
     {
         /*=============================================
-		Validar que la órden no esté finalizada
+		The order must not be completed
 		=============================================*/
         $url = "orders?linkTo=id_order,status_order&equalTo=" . $this->idOrderDelete . ",Completada";
         $method = "GET";
@@ -543,7 +554,7 @@ class PosController
         } else {
 
             /*=============================================
-			Eliminar orden
+			Delete the order
 			=============================================*/
             $url = "orders?id=" . $this->idOrderDelete . "&nameId=id_order&token=" . $this->token . "&table=admins&suffix=admin";
             $method = "DELETE";
@@ -561,7 +572,7 @@ class PosController
                     foreach ($getSales->results as $key => $value) {
 
                         /*=============================================
-						Eliminar venta
+						Delete a sale
 						=============================================*/
                         $url = "sales?id=" . $value->id_sale . "&nameId=id_sale&token=" . $this->token . "&table=admins&suffix=admin";
                         $method = "DELETE";
@@ -582,7 +593,22 @@ class PosController
 }
 
 /*=============================================
-	Función para cargar productos
+Branch and administrator come from the session, never from the request
+=============================================*/
+
+OfficeGuard::start();
+
+$sessionOffice = OfficeGuard::current();
+$sessionAdmin  = OfficeGuard::currentAdmin();
+
+if ($sessionOffice === null || $sessionAdmin === null) {
+
+    echo "logout";
+    exit;
+}
+
+/*=============================================
+	Load products
 =============================================*/
 if (isset($_POST["limit"])) {
     $ajax = new PosController();
@@ -590,27 +616,27 @@ if (isset($_POST["limit"])) {
     $ajax->startAt = $_POST["startAt"];
     $ajax->category = $_POST["category"];
     $ajax->search = $_POST["search"];
-    $ajax->idOffice = $_POST["idOffice"];
+    $ajax->idOffice = $sessionOffice;
     $ajax->loadProducts();
 }
 
 /*=============================================
-	Crear nueva orden
+	Create a new order
 =============================================*/
 if (isset($_POST["order"])) {
     $ajax = new PosController();
-    $ajax->token = $_POST["token"];
-    $ajax->seller = $_POST["seller"];
-    $ajax->idOffice = $_POST["idOffice"];
+    $ajax->token = Session::token();
+    $ajax->seller = $sessionAdmin;
+    $ajax->idOffice = $sessionOffice;
     $ajax->newOrder();
 }
 
 /*=============================================
-Actualizar orden
+Update the order
 =============================================*/
 if (isset($_POST["idOrderUpdate"])) {
     $ajax = new PosController();
-    $ajax->token = $_POST["token"];
+    $ajax->token = Session::token();
     $ajax->idOrder = $_POST["idOrderUpdate"];
     $ajax->idClient = $_POST["idClient"];
     $ajax->subtotalOrder = $_POST["subtotalOrder"];
@@ -621,7 +647,7 @@ if (isset($_POST["idOrderUpdate"])) {
 }
 
 /*=============================================
-Agregar nuevo cliente
+Add a new client
 =============================================*/
 if (isset($_POST["name_client"])) {
     $ajax = new PosController();
@@ -631,63 +657,63 @@ if (isset($_POST["name_client"])) {
     $ajax->email_client = $_POST["email_client"];
     $ajax->phone_client = $_POST["phone_client"];
     $ajax->address_client = $_POST["address_client"];
-    $ajax->idOffice = $_POST["idOffice"];
-    $ajax->token = $_POST["token"];
+    $ajax->idOffice = $sessionOffice;
+    $ajax->token = Session::token();
     $ajax->newClient();
 }
 
 /*=============================================
-Agregar producto a la lista de órdenes
+Add a product to the order
 =============================================*/
 if (isset($_POST["idProduct"])) {
     $ajax = new PosController();
     $ajax->idProduct = $_POST["idProduct"];
     $ajax->idOrder = $_POST["idOrder"];
     $ajax->idClient = $_POST["idClient"];
-    $ajax->seller = $_POST["seller"];
-    $ajax->idOffice = $_POST["idOffice"];
-    $ajax->token = $_POST["token"];
+    $ajax->seller = $sessionAdmin;
+    $ajax->idOffice = $sessionOffice;
+    $ajax->token = Session::token();
     $ajax->addProductPos();
 }
 
 /*=============================================
-Actualizar Cantidad
+Update quantity
 =============================================*/
 if (isset($_POST["idSaleUpdate"])) {
     $ajax = new PosController();
     $ajax->idSaleUpdate = $_POST["idSaleUpdate"];
     $ajax->qtySale = $_POST["qtySale"];
     $ajax->subtotalSale = $_POST["subtotalSale"];
-    $ajax->token = $_POST["token"];
+    $ajax->token = Session::token();
     $ajax->updateSale();
 }
 
 /*=============================================
-Remover Venta
+Remove a sale
 =============================================*/
 if (isset($_POST["idSaleDelete"])) {
     $ajax = new PosController();
     $ajax->idSaleDelete = $_POST["idSaleDelete"];
-    $ajax->token = $_POST["token"];
+    $ajax->token = Session::token();
     $ajax->deleteSale();
 }
 
 /*=============================================
-Remover todas las Ventas
+Remove every sale
 =============================================*/
 if (isset($_POST["idOrderSale"])) {
     $ajax = new PosController();
     $ajax->idOrderSale = $_POST["idOrderSale"];
-    $ajax->token = $_POST["token"];
+    $ajax->token = Session::token();
     $ajax->deleteAllSale();
 }
 
 /*=============================================
-Remover Órden
+Remove the order
 =============================================*/
 if (isset($_POST["idOrderDelete"])) {
     $ajax = new PosController();
     $ajax->idOrderDelete = $_POST["idOrderDelete"];
-    $ajax->token = $_POST["token"];
+    $ajax->token = Session::token();
     $ajax->deleteOrder();
 }

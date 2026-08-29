@@ -1,36 +1,38 @@
 <?php
 
-$clientSale = array();
-$topClients = array();
+require_once __DIR__ . "/../../../../../../lib/view.php";
+
+require_once __DIR__ . "/../../../../../../api/models/connection.php";
+
+/*=============================================
+Summed and ranked by the database, and each client comes back with the
+same query instead of one round trip per row
+=============================================*/
+
+$where = "s.status_sale = 'Completada'";
+$args  = [];
 
 if ($_SESSION["admin"]->id_office_admin > 0) {
-	$url = "sales?linkTo=id_office_sale&equalTo=" . $_SESSION["admin"]->id_office_admin . "&select=id_client_sale,qty_sale";
-} else {
-	$url = "sales?select=id_client_sale,qty_sale";
+
+	$where .= " AND s.id_office_sale = :office";
+	$args[":office"] = (int) $_SESSION["admin"]->id_office_admin;
 }
 
-$method = "GET";
-$fields = array();
+$stmt = Connection::connect()->prepare(
+	"SELECT cl.name_client, cl.surname_client, cl.email_client, cl.phone_client,
+	        o.title_office, SUM(s.qty_sale) AS qty
+	   FROM sales s
+	   INNER JOIN clients cl ON cl.id_client = s.id_client_sale
+	   LEFT JOIN offices o ON o.id_office = cl.id_office_client
+	  WHERE " . $where . "
+	  GROUP BY cl.id_client, cl.name_client, cl.surname_client, cl.email_client, cl.phone_client, o.title_office
+	  ORDER BY qty DESC
+	  LIMIT 5"
+);
 
-$bestClient = CurlController::request($url, $method, $fields);
-if ($bestClient->status == 200) {
+$stmt->execute($args);
 
-	/*=============================================
-	Creamos los índices del array
-	=============================================*/
-	foreach ($bestClient->results as $key => $value) {
-		$clientSale[$value->id_client_sale] = 0;
-	}
-
-	/*=============================================
-	Agregamos los valores del array
-	=============================================*/
-	foreach ($bestClient->results as $key => $value) {
-		$clientSale[$value->id_client_sale] += $value->qty_sale;
-	}
-	arsort($clientSale);
-	$topClients = array_slice($clientSale, 0, 5, true);
-}
+$topClients = $stmt->fetchAll(PDO::FETCH_OBJ);
 
 ?>
 
@@ -61,33 +63,29 @@ Custom
 		<div class="card-body">
 
 			<?php if (!empty($topClients)): ?>
-				<ul class="list-group">
-					<?php foreach ($topClients as $key => $value): ?>
-						<?php
-						$url = "relations?rel=clients,offices&type=client,office&linkTo=id_client&equalTo=" . $key . "&select=name_client,surname_client,email_client,phone_client,title_office";
-						$listClients = CurlController::request($url, $method, $fields)->results[0];
-						?>
+				<div class="table-responsive"><ul class="list-group">
+					<?php foreach ($topClients as $listClients): ?>
 						<li class="list-group-item">
 							<div class="d-flex border-bottom">
 								<div class="flex-fill w-100 text-center">
-									<span class="badge badge-default backColor rounded small mt-2"><?php echo TemplateController::reduceText(urldecode($listClients->title_office), 12) ?></span>
+									<span class="badge badge-default backColor rounded small mt-2"><?php echo TemplateController::reduceText(View::text($listClients->title_office), 12) ?></span>
 								</div>
 								<div class="flex-fill w-100 text-center">
-									<p class="mt-2"><?php echo TemplateController::reduceText(urldecode($listClients->name_client) . " " . urldecode($listClients->surname_client), 10) ?></p>
+									<p class="mt-2"><?php echo TemplateController::reduceText(View::text($listClients->name_client) . " " . View::text($listClients->surname_client), 10) ?></p>
 								</div>
 								<div class="flex-fill w-100 text-center">
-									<p class="mt-2"><?php echo TemplateController::reduceText(urldecode($listClients->email_client), 10) ?></p>
+									<p class="mt-2"><?php echo TemplateController::reduceText(View::text($listClients->email_client), 10) ?></p>
 								</div>
 								<div class="flex-fill w-100 text-center">
-									<p class="mt-2"><?php echo urldecode($listClients->phone_client) ?></p>
+									<p class="mt-2"><?php echo View::text($listClients->phone_client) ?></p>
 								</div>
 								<div class="flex-fill w-100 text-center">
-									<span class="badge badge-default bg-teal rounded small mt-2"><?php echo $value ?></span>
+									<span class="badge badge-default bg-teal rounded small mt-2"><?php echo (int) $listClients->qty ?></span>
 								</div>
 							</div>
 						</li>
 					<?php endforeach ?>
-				</ul>
+				</ul></div>
 			<?php endif ?>
 
 		</div>

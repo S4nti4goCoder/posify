@@ -1,37 +1,38 @@
 <?php
 
-$productSale = array();
-$topProducts = array();
+require_once __DIR__ . "/../../../../../../lib/view.php";
+
+require_once __DIR__ . "/../../../../../../api/models/connection.php";
+
+/*=============================================
+Summed and ranked by the database. This used to pull every sale row into
+PHP, add them up in a loop, then ask for each product one at a time
+=============================================*/
+
+$where = "s.status_sale = 'Completada'";
+$args  = [];
 
 if ($_SESSION["admin"]->id_office_admin > 0) {
-	$url = "sales?linkTo=id_office_sale&equalTo=" . $_SESSION["admin"]->id_office_admin . "&select=id_product_sale,qty_sale";
-} else {
-	$url = "sales?select=id_product_sale,qty_sale";
+
+	$where .= " AND s.id_office_sale = :office";
+	$args[":office"] = (int) $_SESSION["admin"]->id_office_admin;
 }
 
-$method = "GET";
-$fields = array();
+$stmt = Connection::connect()->prepare(
+	"SELECT p.id_product, p.sku_product, p.img_product, p.title_product,
+	        c.title_category, SUM(s.qty_sale) AS qty
+	   FROM sales s
+	   INNER JOIN products p ON p.id_product = s.id_product_sale
+	   LEFT JOIN categories c ON c.id_category = p.id_category_product
+	  WHERE " . $where . "
+	  GROUP BY p.id_product, p.sku_product, p.img_product, p.title_product, c.title_category
+	  ORDER BY qty DESC
+	  LIMIT 5"
+);
 
-$bestProduct = CurlController::request($url, $method, $fields);
-if ($bestProduct->status == 200) {
+$stmt->execute($args);
 
-	/*=============================================
-	Creamos los índices del array
-	=============================================*/
-	foreach ($bestProduct->results as $key => $value) {
-
-		$productSale[$value->id_product_sale] = 0;
-	}
-
-	/*=============================================
-	Agregamos los valores del array
-	=============================================*/
-	foreach ($bestProduct->results as $key => $value) {
-		$productSale[$value->id_product_sale] += $value->qty_sale;
-	}
-	arsort($productSale);
-	$topProducts = array_slice($productSale, 0, 5, true);
-}
+$topProducts = $stmt->fetchAll(PDO::FETCH_OBJ);
 
 ?>
 
@@ -62,33 +63,29 @@ Custom
 		<div class="card-body">
 
 			<?php if (!empty($topProducts)): ?>
-				<ul class="list-group">
-					<?php foreach ($topProducts as $key => $value): ?>
-						<?php
-						$url = "relations?rel=products,categories&type=product,category&linkTo=id_product&equalTo=" . $key . "&select=sku_product,img_product,title_product,title_category";
-						$listProducts = CurlController::request($url, $method, $fields)->results[0];
-						?>
+				<div class="table-responsive"><ul class="list-group">
+					<?php foreach ($topProducts as $listProducts): ?>
 						<li class="list-group-item">
 							<div class="d-flex border-bottom">
 								<div class="flex-fill w-100 text-center">
-									<img src="<?php echo urldecode($listProducts->img_product) ?>" class="img-fluid" style="width:50px">
+									<img src="<?php echo View::url($listProducts->img_product) ?>" class="img-fluid" style="width:50px">
 								</div>
 								<div class="flex-fill w-100 text-center">
-									<span class="badge badge-default backColor rounded small mt-2"><?php echo urldecode($listProducts->sku_product) ?></span>
+									<span class="badge badge-default backColor rounded small mt-2"><?php echo View::text($listProducts->sku_product) ?></span>
 								</div>
 								<div class="flex-fill w-100 text-center">
-									<p class="mt-2"><?php echo urldecode($listProducts->title_product) ?></p>
+									<p class="mt-2"><?php echo View::text($listProducts->title_product) ?></p>
 								</div>
 								<div class="flex-fill w-100 text-center">
-									<p class="mt-2"><?php echo urldecode($listProducts->title_category) ?></p>
+									<p class="mt-2"><?php echo View::text($listProducts->title_category) ?></p>
 								</div>
 								<div class="flex-fill w-100 text-center">
-									<span class="badge badge-default bg-orange rounded small mt-2"><?php echo $value ?></span>
+									<span class="badge badge-default bg-orange rounded small mt-2"><?php echo (int) $listProducts->qty ?></span>
 								</div>
 							</div>
 						</li>
 					<?php endforeach ?>
-				</ul>
+				</ul></div>
 			<?php endif ?>
 
 		</div>

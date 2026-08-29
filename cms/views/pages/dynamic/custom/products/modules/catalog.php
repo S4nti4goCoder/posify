@@ -1,23 +1,39 @@
 <?php
 
+require_once __DIR__ . "/../../../../../../../lib/view.php";
+require_once __DIR__ . "/../../../../../../../lib/money.php";
+
 $limit = 6;
-$url = "relations?rel=products,categories&type=product,category&linkTo=id_office_product,status_product&equalTo=" . $_SESSION["admin"]->id_office_admin . ",1&orderBy=id_product&orderMode=DESC&startAt=0&endAt=" . $limit;
-$method = "GET";
-$fields = array();
 
-$products = CurlController::request($url, $method, $fields);
+/*=============================================
+Stock lives in its own table now, and the relations endpoint builds every
+join from the first table, so this one is asked for directly
+=============================================*/
 
-if ($products->status == 200) {
-    $products = $products->results;
+require_once __DIR__ . "/../../../../../../../api/models/connection.php";
 
-    /*=============================================
-	Traer Total de productos
-	=============================================*/
-    $url = "relations?rel=products,categories&type=product,category&linkTo=id_office_product,status_product&equalTo=" . $_SESSION["admin"]->id_office_admin . ",1";
-    $totalPageProducts = ceil(CurlController::request($url, $method, $fields)->total / $limit);
-} else {
-    $products = array();
-}
+$db = Connection::connect();
+
+$from = " FROM products p
+          INNER JOIN stocks s ON s.id_product_stock = p.id_product
+          LEFT JOIN categories c ON c.id_category = p.id_category_product
+          WHERE s.id_office_stock = :office AND p.status_product = 1";
+
+$stmt = $db->prepare("SELECT COUNT(*)" . $from);
+$stmt->execute([":office" => (int) $_SESSION["admin"]->id_office_admin]);
+
+$totalPageProducts = ceil((int) $stmt->fetchColumn() / $limit);
+
+$stmt = $db->prepare(
+    "SELECT p.*, c.title_category, s.qty_stock" . $from .
+    " ORDER BY p.id_product DESC LIMIT 0, :endAt"
+);
+
+$stmt->bindValue(":office", (int) $_SESSION["admin"]->id_office_admin, PDO::PARAM_INT);
+$stmt->bindValue(":endAt", $limit, PDO::PARAM_INT);
+$stmt->execute();
+
+$products = $stmt->fetchAll(PDO::FETCH_OBJ);
 
 ?>
 
@@ -35,26 +51,28 @@ if ($products->status == 200) {
                 <?php endif ?>
 
                 <div class="position-absolute small bg-white p-1 shadow-sm rounded" style="top:4px; right:4px; font-size:10px"><?php echo $value->sku_product ?></div>
-                <img src="<?php echo urldecode($value->img_product) ?>" class="card-img-top px-5 py-3 mx-auto" style="width:200px !important">
+                <img src="<?php echo View::url($value->img_product) ?>" class="card-img-top px-5 py-3 mx-auto" style="width:200px !important">
                 <div class="card-body">
-                    <h6 class="font-weight-bold text-gray samll"><?php echo urldecode($value->title_category) ?></h6>
-                    <h6 class="card-title pb-2 font-weight-bold"><?php echo urldecode($value->title_product) ?></h6>
+                    <h6 class="font-weight-bold text-gray samll"><?php echo View::text($value->title_category) ?></h6>
+                    <h6 class="card-title pb-2 font-weight-bold"><?php echo View::text($value->title_product) ?></h6>
                     <div class="d-flex justify-content-between">
 
                         <?php
-                        if ($value->stock_product < 50) {
+                        $colorStock = "bg-secondary";
+
+                        if ($value->qty_stock < 50) {
                             $colorStock = "bg-maroon";
                         }
-                        if ($value->stock_product >= 50 && $value->stock_product < 100) {
+                        if ($value->qty_stock >= 50 && $value->qty_stock < 100) {
                             $colorStock = "bg-indigo";
                         }
-                        if ($value->stock_product >= 100) {
+                        if ($value->qty_stock >= 100) {
                             $colorStock = "bg-teal";
                         }
                         ?>
 
                         <div class="card-text small h6 badge badge-default pb-0 <?php echo $colorStock  ?>" style="font-size:10px; padding-top:6px">
-                            <?php echo $value->stock_product ?>
+                            <?php echo $value->qty_stock ?>
                         </div>
 
                         <?php
@@ -71,10 +89,10 @@ if ($products->status == 200) {
                         ?>
 
                         <?php if ($value->discount_product > 0): ?>
-                            <span class="small ms-auto pe-1 h6 mt-1 text-red font-weight-bold" style="font-size:12px"><s>$ <?php echo number_format($price, 2) ?></s></span>
-                            <div class="small h6 mt-1 textColor font-weight-bold"><strong>$ <?php echo number_format($discount, 2) ?></strong></div>
+                            <span class="small ms-auto pe-1 h6 mt-1 text-red font-weight-bold" style="font-size:12px"><s>$ <?php echo Money::amount($price) ?></s></span>
+                            <div class="small h6 mt-1 textColor font-weight-bold"><strong>$ <?php echo Money::amount($discount) ?></strong></div>
                         <?php else: ?>
-                            <div class="small h6 mt-1 textColor font-weight-bold"><strong>$ <?php echo number_format($price, 2) ?></strong></div>
+                            <div class="small h6 mt-1 textColor font-weight-bold"><strong>$ <?php echo Money::amount($price) ?></strong></div>
                         <?php endif ?>
                     </div>
                 </div>
@@ -101,7 +119,15 @@ if ($products->status == 200) {
 
     <div class="row p-2 my-5 text-center">
         <?php include "svg.php" ?>
-        <p>No hay productos agregados a esta Sucursal</p>
+        <?php if ((int) $_SESSION["admin"]->id_office_admin === 0): ?>
+
+            <p>Elige una sucursal para vender. En Multi-Sucursal se consultan los datos de todas, pero no se puede facturar.</p>
+
+        <?php else: ?>
+
+            <p>No hay productos agregados a esta Sucursal</p>
+
+        <?php endif ?>
     </div>
 
 <?php endif ?>

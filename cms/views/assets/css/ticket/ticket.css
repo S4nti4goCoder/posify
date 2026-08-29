@@ -1,0 +1,47 @@
+/*=============================================
+Thermal ticket, 80 mm roll. Shared by the till closing and the sale receipt
+=============================================*/
+
+.tk {
+  width: 74mm;
+  margin: 0 auto;
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #000;
+}
+
+.tk-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tk-row span:last-child {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.tk-center { text-align: center; }
+.tk-bold   { font-weight: bold; }
+.tk-small  { font-size: 10px; }
+.tk-head   { font-weight: bold; margin-top: 8px; }
+
+.tk-sep {
+  border-top: 1px dashed #000;
+  margin: 6px 0;
+}
+
+.tk-item {
+  margin-top: 4px;
+}
+
+/*=============================================
+The same strip inside the checkout modal: full width, no roll
+=============================================*/
+
+.tk-preview {
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.35;
+}

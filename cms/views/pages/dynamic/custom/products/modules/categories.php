@@ -1,7 +1,48 @@
 <?php
 
+require_once __DIR__ . "/../../../../../../../api/models/connection.php";
+
 /*=============================================
-Traer categorías desde la BD
+A branch only carries what it has stock rows for
+=============================================*/
+
+if (!function_exists("countCatalogue")) {
+
+    function countCatalogue(int $officeId, int $categoryId = 0): int
+    {
+        if ($officeId <= 0) {
+
+            return 0;
+        }
+
+        $where = "s.id_office_stock = :office AND p.status_product = 1";
+        $args  = [":office" => $officeId];
+
+        if ($categoryId > 0) {
+
+            $where .= " AND p.id_category_product = :category";
+            $args[":category"] = $categoryId;
+        }
+
+        $stmt = Connection::connect()->prepare(
+            "SELECT COUNT(*) FROM products p
+               INNER JOIN stocks s ON s.id_product_stock = p.id_product
+              WHERE " . $where
+        );
+
+        $stmt->execute($args);
+
+        return (int) $stmt->fetchColumn();
+    }
+}
+
+?>
+<?php
+
+require_once __DIR__ . "/../../../../../../../lib/view.php";
+
+/*=============================================
+Read the categories
 =============================================*/
 $url = "categories?linkTo=status_category&equalTo=1";
 $method = "GET";
@@ -28,13 +69,13 @@ JD SLIDER
 
                 <li>
                     <div class="border-0 rounded text-center bg-white mx-1 p-3 pb-0 loadCategory" idCategory="all">
-                        <img src="http://cms.pos.com/views/assets/files/67e742629d30818.png" class="img-fluid mx-auto" style="width:50px; cursor:pointer">
+                        <img src="/views/assets/files/67e742629d30818.png" class="img-fluid mx-auto" style="width:50px; cursor:pointer">
                         <p class="pt-2 mb-0 lead" style="cursor:move"><strong>Todo</strong></p>
 
                         <?php
                         if ($_SESSION["admin"]->id_office_admin > 0) {
-                            $url = "products?linkTo=status_product,id_office_product&equalTo=1," . $_SESSION["admin"]->id_office_admin . "&select=id_product";
-                            $totalProducts = CurlController::request($url, $method, $fields)->total;
+                            $totalProducts = countCatalogue((int) $_SESSION["admin"]->id_office_admin);
+
                         } else {
                             $totalProducts = 0;
                         }
@@ -47,13 +88,13 @@ JD SLIDER
 
                     <li>
                         <div class="border-0 rounded text-center bg-white mx-1 p-3 pb-0 loadCategory" idCategory="<?php echo $value->id_category ?>">
-                            <img src="<?php echo urldecode($value->img_category) ?>" class="img-fluid mx-auto" style="width:50px; cursor:pointer">
-                            <p class="pt-2 mb-0 lead" style="cursor:move"><strong><?php echo urldecode($value->title_category) ?></strong></p>
+                            <img src="<?php echo View::url($value->img_category) ?>" class="img-fluid mx-auto" style="width:50px; cursor:pointer">
+                            <p class="pt-2 mb-0 lead" style="cursor:move"><strong><?php echo View::text($value->title_category) ?></strong></p>
 
                             <?php
                             if ($_SESSION["admin"]->id_office_admin > 0) {
-                                $url = "products?linkTo=id_category_product,status_product,id_office_product&equalTo=" . $value->id_category . ",1," . $_SESSION["admin"]->id_office_admin . "&select=id_product";
-                                $totalProducts = CurlController::request($url, $method, $fields)->total;
+                                $totalProducts = countCatalogue((int) $_SESSION["admin"]->id_office_admin, (int) $value->id_category);
+
                             } else {
                                 $totalProducts = 0;
                             }

@@ -18,7 +18,7 @@ $(".jd-slider").jdSlider({
 });
 
 /*=============================================
-CARGAR MÁS PRODUCTOS
+LOAD MORE PRODUCTS
 =============================================*/
 $(document).on("click", "#loadPageProducts", function () {
   if (
@@ -47,7 +47,7 @@ $(document).on("click", "#loadPageProducts", function () {
 });
 
 /*=============================================
-FILTRAR PRODUCTOS POR CATEGORÍAS
+FILTER PRODUCTS BY CATEGORY
 =============================================*/
 $(document).on("click", ".loadCategory", function () {
   var category = $(this).attr("idCategory");
@@ -62,7 +62,7 @@ $(document).on("click", ".loadCategory", function () {
 });
 
 /*=============================================
-FILTRAR PRODUCTOS POR BÚSQUEDA
+FILTER PRODUCTS BY SEARCH
 =============================================*/
 $(document).on("keyup", "#searchProduct", function () {
   var search = $(this).val();
@@ -76,7 +76,7 @@ $(document).on("keyup", "#searchProduct", function () {
 });
 
 /*=============================================
-FUNCIÓN PARA CARGAR MÁS PRODUCTOS
+LOAD MORE PRODUCTS
 =============================================*/
 function loadMoreProducts(limit, startAt, category, search) {
   if (search == "") {
@@ -130,7 +130,7 @@ function loadMoreProducts(limit, startAt, category, search) {
 }
 
 /*=============================================
-CREAR NUEVA ÓRDEN
+CREATE A NEW ORDER
 =============================================*/
 $(document).on("click", ".newOrder", function () {
   if ($("#orderHeader").attr("mode") == "on") {
@@ -147,7 +147,6 @@ $(document).on("click", ".newOrder", function () {
     data.append("order", "new");
     data.append("idOffice", $("#idOffice").val());
     data.append("seller", $("#seller").attr("idAdmin"));
-    data.append("token", localStorage.getItem("tokenAdmin"));
 
     $.ajax({
       url: "/ajax/pos.ajax.php",
@@ -158,10 +157,10 @@ $(document).on("click", ".newOrder", function () {
       processData: false,
       success: function (response) {
         if (response == "current cash error") {
-          fncToastr("error", "No hay caja abierta el día de hoy");
+          fncToastr("error", "No hay caja abierta hoy. Ábrela en el módulo Caja para poder vender.");
           return;
         } else if (response == "yesterday cash error") {
-          fncToastr("error", "No ha cerrado caja del día anterior");
+          fncToastr("error", "La caja de un día anterior sigue abierta. Ciérrala en el módulo Caja.");
           return;
         } else if (response == "logout") {
           fncSweetAlert(
@@ -182,7 +181,7 @@ $(document).on("click", ".newOrder", function () {
           );
 
           /*=============================================
-	   			Organizamos cabecera de la orden 
+	   			Build the order header
 	   			=============================================*/
           $("#orderHeader").attr("mode", "on");
           $("#orderHeader").attr("idOrder", JSON.parse(response).id_order);
@@ -193,12 +192,12 @@ $(document).on("click", ".newOrder", function () {
           );
 
           /*=============================================
-	   			Habilitamos la opción de agregar cliente 
+	   			Enable the add client option
 	   			=============================================*/
           $("#addClient").removeClass("d-none");
 
           /*=============================================
-	   			Habilitar módulo de productos añadidos
+	   			Enable the added products panel
 	   			=============================================*/
           $("#countProduct").removeClass("bg-light");
           $("#countProduct").addClass("backColor");
@@ -207,13 +206,13 @@ $(document).on("click", ".newOrder", function () {
           $("#addProduct").html("");
 
           /*=============================================
-	   			Habilitar módulo de totales
+	   			Enable the totals panel
 	   			=============================================*/
           $("#granTotal").removeClass("bg-light");
           $("#granTotal").addClass("bg-blue");
 
           /*=============================================
-	   			Habilitar métodos de pago
+	   			Enable the payment methods
 	   			=============================================*/
           $("#payMethods").show();
         }
@@ -225,7 +224,7 @@ $(document).on("click", ".newOrder", function () {
 });
 
 /*=============================================
-Elegir Cliente
+Pick a client
 =============================================*/
 
 $(document).on("change", "#clientList", function () {
@@ -233,7 +232,7 @@ $(document).on("change", "#clientList", function () {
 });
 
 /*=============================================
-Agregar nuevo Cliente
+Add a new client
 =============================================*/
 $(document).on("click", "#addClient", function () {
   $("#modalClient").modal("show");
@@ -241,7 +240,7 @@ $(document).on("click", "#addClient", function () {
     $(".alertClient").remove();
 
     /*=============================================
-    variables formulario de cliente
+    Client form variables
     =============================================*/
     var name_client = "";
     var surname_client = "";
@@ -251,7 +250,7 @@ $(document).on("click", "#addClient", function () {
     var address_client = "";
 
     /*=============================================
-    Capturamos cambios en el formulario de cliente
+    Watch the client form for changes
     =============================================*/
     $(".changeFormClient").change(function () {
       name_client = $("#name_client").val();
@@ -263,7 +262,7 @@ $(document).on("click", "#addClient", function () {
     });
 
     /*=============================================
-    guardar formulario de cliente
+    Save the client form
     =============================================*/
     $("#btnAddClient").click(function () {
       if (
@@ -282,7 +281,6 @@ $(document).on("click", "#addClient", function () {
         data.append("phone_client", phone_client);
         data.append("address_client", address_client);
         data.append("idOffice", $("#idOffice").val());
-        data.append("token", localStorage.getItem("tokenAdmin"));
 
         $.ajax({
           url: "/ajax/pos.ajax.php",
@@ -325,13 +323,13 @@ $(document).on("click", "#addClient", function () {
 });
 
 /*=============================================
-Agregar Producto
+Add a product
 =============================================*/
 $(document).on("click", ".addProductPos", function () {
   fncSweetAlert("loading", "Cargando producto...", "");
 
   /*=============================================
-	Subir el scroll a la parte superior
+	Scroll to the top
 	=============================================*/
   $("html, body").animate(
     {
@@ -351,7 +349,6 @@ $(document).on("click", ".addProductPos", function () {
     data.append("idClient", $("#clientList").val());
     data.append("seller", $("#seller").attr("idAdmin"));
     data.append("idOffice", $("#idOffice").val());
-    data.append("token", localStorage.getItem("tokenAdmin"));
 
     $.ajax({
       url: "/ajax/pos.ajax.php",
@@ -376,12 +373,12 @@ $(document).on("click", ".addProductPos", function () {
           fncToastr("error", "El producto ya está agregado a la orden");
         } else {
           /*=============================================
-	        Pintar en el HTML el producto agregado
+	        Render the added product
 	        =============================================*/
           $("#addProduct").append(response);
 
           /*=============================================
-	        Calcular los totales de la orden
+	        Order totals
 	        =============================================*/
           calculateProducts();
         }
@@ -393,16 +390,16 @@ $(document).on("click", ".addProductPos", function () {
 });
 
 /*=============================================
-Manipular Cantidad con botones
+Change quantity with the buttons
 =============================================*/
 $(document).on("click", ".btnQty", function () {
   /*=============================================
-	Capturar id del producto
+	Read the product id
 	=============================================*/
   var key = $(this).attr("key");
 
   /*=============================================
-	Disminuir cantidad
+	Decrease quantity
 	=============================================*/
   if ($(this).attr("type") == "btnMin") {
     if (Number($(".showQuantity_" + key).val()) > 1) {
@@ -413,7 +410,7 @@ $(document).on("click", ".btnQty", function () {
   }
 
   /*=============================================
-	Aumentar cantidad
+	Increase quantity
 	=============================================*/
   if ($(this).attr("type") == "btnMax") {
     $(".showQuantity_" + key).val(Number($(".showQuantity_" + key).val()) + 1);
@@ -422,7 +419,7 @@ $(document).on("click", ".btnQty", function () {
 });
 
 /*=============================================
-Manipular Cantidad manualmente
+Change quantity by typing
 =============================================*/
 $(document).on("change", ".showQuantity", function () {
   if ($(this).val() < 1) {
@@ -435,31 +432,30 @@ $(document).on("change", ".showQuantity", function () {
 });
 
 /*=============================================
-Cambio de cantidad
+Quantity changed
 =============================================*/
 function changeQuantity(key) {
   /*=============================================
-	Capturamos descuento
+	Read the discount
 	=============================================*/
   var discount = Number($(".deleteSale_" + key).attr("discountSale"));
 
   /*=============================================
-	Actualizamos subtotal
+	Update the subtotal
 	=============================================*/
   var pricePurchase =
     Number($(".pricePurchase_" + key).attr("originalPricePurchase")) *
     $(".showQuantity_" + key).val();
-  $(".pricePurchase_" + key).attr("pricePurchase", pricePurchase);
-  $(".pricePurchase_" + key).html(money(pricePurchase.toFixed(2)));
+  $(".pricePurchase_" + key).attr("pricePurchase", Math.round(pricePurchase));
+  $(".pricePurchase_" + key).html(money(pricePurchase));
 
   /*=============================================
-	Actualizamos cantidad y subtotal en base de datos
+	Save quantity and subtotal
 	=============================================*/
   var data = new FormData();
   data.append("idSaleUpdate", $(".deleteSale_" + key).attr("idSale"));
   data.append("qtySale", $(".showQuantity_" + key).val());
-  data.append("subtotalSale", pricePurchase);
-  data.append("token", localStorage.getItem("tokenAdmin"));
+  data.append("subtotalSale", Math.round(pricePurchase));
   $.ajax({
     url: "/ajax/pos.ajax.php",
     method: "POST",
@@ -476,9 +472,26 @@ function changeQuantity(key) {
             window.location = "/logout";
           }, 1250)
         );
-      } else {
+      } else if (String(response).indexOf("error stock") === 0) {
         /*=============================================
-        Calculamos Productos
+        The server refused the new quantity. Without this the input kept
+        the typed number while the database held the old one, so the
+        screen showed one total and the charge would have been another.
+        =============================================*/
+        var disponible = parseInt(String(response).replace(/[^0-9]/g, ""), 10);
+        if (isNaN(disponible)) disponible = 0;
+
+        fncToastr("error", "Solo quedan " + disponible + " unidades de este producto");
+
+        if (disponible >= 1) {
+          $(".showQuantity_" + key).val(disponible);
+          changeQuantity(key);
+        } else {
+          $(".showQuantity_" + key).val(1);
+          calculateProducts();
+        }
+        /*=============================================
+        Product totals
         =============================================*/
         calculateProducts();
       }
@@ -487,7 +500,7 @@ function changeQuantity(key) {
 }
 
 /*=============================================
-Eliminar producto de la orden
+Remove a product from the order
 =============================================*/
 $(document).on("click", ".deleteSale", function () {
   var idSale = $(this).attr("idSale");
@@ -498,7 +511,6 @@ $(document).on("click", ".deleteSale", function () {
       if (resp) {
         var data = new FormData();
         data.append("idSaleDelete", idSale);
-        data.append("token", localStorage.getItem("tokenAdmin"));
         $.ajax({
           url: "/ajax/pos.ajax.php",
           method: "POST",
@@ -530,7 +542,7 @@ $(document).on("click", ".deleteSale", function () {
 });
 
 /*=============================================
-Limpiar productos añadidos
+Clear the added products
 =============================================*/
 $(document).on("click", "#cleanListProduct", function () {
   if ($("#addProduct tr").length == 0) {
@@ -548,7 +560,6 @@ $(document).on("click", "#cleanListProduct", function () {
       fncSweetAlert("loading", "Eliminando productos...", "");
       var data = new FormData();
       data.append("idOrderSale", idOrderSale);
-      data.append("token", localStorage.getItem("tokenAdmin"));
       $.ajax({
         url: "/ajax/pos.ajax.php",
         method: "POST",
@@ -580,11 +591,11 @@ $(document).on("click", "#cleanListProduct", function () {
 });
 
 /*=============================================
-Cálculos de productos
+Product totals
 =============================================*/
 function calculateProducts() {
   /*=============================================
-	Contabilizamos el total de productos
+	Count the products
 	=============================================*/
   var showQuantity = $(".showQuantity");
   var totalQty = 0;
@@ -596,7 +607,7 @@ function calculateProducts() {
   $("#countProduct").html(totalQty);
 
   /*=============================================
-	Contabilizamos los subtotales
+	Add up the subtotals
 	=============================================*/
   var pricePurchase = $(".pricePurchase");
   var totalPricePurchase = 0;
@@ -608,11 +619,11 @@ function calculateProducts() {
   /*=============================================
 	Subtotal
 	=============================================*/
-  $("#subtotal").attr("subtotal", totalPricePurchase.toFixed(2));
-  $("#subtotal").html(money(totalPricePurchase.toFixed(2)));
+  $("#subtotal").attr("subtotal", Math.round(totalPricePurchase));
+  $("#subtotal").html(money(totalPricePurchase));
 
   /*=============================================
-	Contabilizamos los descuentos e impuestos
+	Add up discounts and taxes
 	=============================================*/
   var deleteSale = $(".deleteSale");
   var calculateDiscount = 0;
@@ -640,35 +651,35 @@ function calculateProducts() {
   });
 
   /*=============================================
-	Descuento
+	Discount
 	=============================================*/
-  $("#discount").attr("discount", totalPriceDiscount.toFixed(2));
-  $("#discount").html(money(totalPriceDiscount.toFixed(2)));
+  $("#discount").attr("discount", Math.round(totalPriceDiscount));
+  $("#discount").html(money(totalPriceDiscount));
 
   /*=============================================
-	Impuesto
+	Tax
 	=============================================*/
-  $("#tax").attr("tax", totalPriceTax.toFixed(2));
-  $("#tax").html(money(totalPriceTax.toFixed(2)));
+  $("#tax").attr("tax", Math.round(totalPriceTax));
+  $("#tax").html(money(totalPriceTax));
 
   /*=============================================
-	Gran Total
+	Grand total
 	=============================================*/
   var total =
     Number($("#subtotal").attr("subtotal")) -
     Number($("#discount").attr("discount")) +
     Number($("#tax").attr("tax"));
-  $("#granTotal span").attr("granTotal", total.toFixed(2));
-  $("#granTotal span").html(money(total.toFixed(2)));
+  $("#granTotal span").attr("granTotal", Math.round(total));
+  $("#granTotal span").html(money(total));
 
   /*=============================================
-	Actualizar Órden
+	Update the order
 	=============================================*/
   updateOrder();
 }
 
 /*=============================================
-Actualizar cambios en la orden
+Save changes to the order
 =============================================*/
 function updateOrder() {
   if ($("#orderHeader").attr("mode") == "on") {
@@ -686,7 +697,6 @@ function updateOrder() {
     data.append("discountOrder", discountOrder);
     data.append("taxOrder", taxOrder);
     data.append("totalOrder", totalOrder);
-    data.append("token", localStorage.getItem("tokenAdmin"));
 
     $.ajax({
       url: "/ajax/pos.ajax.php",
@@ -712,7 +722,7 @@ function updateOrder() {
 }
 
 /*=============================================
-ELIMINAR ÓRDEN
+DELETE THE ORDER
 =============================================*/
 $(document).on("click", ".removeOrder", function () {
   var idOrder = $(this).attr("idOrder");
@@ -723,7 +733,6 @@ $(document).on("click", ".removeOrder", function () {
 
         var data = new FormData();
         data.append("idOrderDelete", idOrder);
-        data.append("token", localStorage.getItem("tokenAdmin"));
         $.ajax({
           url: "/ajax/pos.ajax.php",
           method: "POST",
@@ -746,9 +755,8 @@ $(document).on("click", ".removeOrder", function () {
             } else {
               fncSweetAlert(
                 "success",
-                "La orden se ha removido con éxito",
-                setTimeout(() => location.reload(), 1250)
-              );
+                "La orden se ha removido con éxito", "");
+              setTimeout(() => location.reload(), 1250)
             }
           },
         });
@@ -758,90 +766,328 @@ $(document).on("click", ".removeOrder", function () {
 });
 
 /*=============================================
-Ventana Modal de pagos
+Checkout modal
+
+One modal for every method. The old one bound its handlers inside
+shown.bs.modal, so each reopen added another copy of them
 =============================================*/
-$(document).on("click", ".payMethod", function () {
+
+function checkoutEscape(value) {
+  return $("<div>").text(value == null ? "" : value).html();
+}
+
+/*=============================================
+What is really being charged: the order total less the manual discount
+=============================================*/
+function checkoutTotal() {
+  var base = Number($("#granTotal span").attr("granTotal")) || 0;
+  var extra = Number($("#extraDiscount").val()) || 0;
+
+  if (extra < 0) {
+    extra = 0;
+  }
+
+  if (extra > base) {
+    extra = base;
+  }
+
+  return base - extra;
+}
+
+/*=============================================
+The ticket preview
+=============================================*/
+function checkoutTicket(total) {
+  var html = "";
+
+  $("#addProduct tr").each(function () {
+    var qty = Number($(this).find(".showQuantity").val()) || 0;
+    var title = $(this).find("h6 strong").first().text();
+    var subtotal = Number($(this).find(".pricePurchase").attr("pricePurchase")) || 0;
+
+    html +=
+      '<div class="tk-row"><span>' +
+      qty +
+      "x " +
+      checkoutEscape(title) +
+      "</span><span>$ " +
+      money(subtotal) +
+      "</span></div>";
+  });
+
+  html += '<div class="tk-sep"></div>';
+
+  var discount = Number($("#discount").attr("discount")) || 0;
+  var tax = Number($("#tax").attr("tax")) || 0;
+  var extra = (Number($("#granTotal span").attr("granTotal")) || 0) - total;
+  var rows = "";
+
+  if (discount > 0) {
+    rows += '<div class="tk-row"><span>Descuento</span><span>-$ ' + money(discount) + "</span></div>";
+  }
+
+  if (tax > 0) {
+    rows += '<div class="tk-row"><span>Impuesto</span><span>$ ' + money(tax) + "</span></div>";
+  }
+
+  if (extra > 0) {
+    rows += '<div class="tk-row"><span>Descuento adicional</span><span>-$ ' + money(extra) + "</span></div>";
+  }
+
+  if (rows !== "") {
+    html += rows + '<div class="tk-sep"></div>';
+  }
+
+  html += '<div class="tk-row tk-bold"><span>TOTAL</span><span>$ ' + money(total) + "</span></div>";
+
+  return html;
+}
+
+/*=============================================
+Redraw the ticket, show the block the chosen method needs, and only let the
+cobro through when the money on screen covers the total
+=============================================*/
+function checkoutRefresh() {
+  var total = checkoutTotal();
+  var mixto = $("#toggleMixto").attr("on") == "yes";
+  var method = $("#payMethodSelect").val();
+  var ok = total > 0;
+
+  $("#checkoutLines").html(checkoutTicket(total));
+  $("#payMethodSelect").toggle(!mixto);
+  $(".payBlock").hide();
+
+  if (mixto) {
+    $("#blockMixto").show();
+
+    var sum = (Number($("#mixtoCash").val()) || 0) + (Number($("#mixtoCard").val()) || 0);
+    var mixtoShort = sum < total;
+
+    $("#mixtoSum")
+      .html("$ " + money(sum) + " / $ " + money(total))
+      .removeClass("text-red text-green")
+      .addClass(mixtoShort ? "text-red" : "text-green");
+
+    $("#mixtoShort").html(mixtoShort ? "Faltan $ " + money(total - sum) : "");
+
+    ok = ok && !mixtoShort;
+  } else if (method == "efectivo") {
+    $("#blockCash").show();
+
+    var cash = Number($("#cashReceived").val()) || 0;
+    var cashShort = cash < total;
+
+    $("#cashLabel").html(cashShort ? "Faltan" : "Vuelto");
+
+    $("#cashAmount")
+      .html("$ " + money(cashShort ? total - cash : cash - total))
+      .removeClass("text-red text-green")
+      .addClass(cashShort ? "text-red" : "text-green");
+
+    ok = ok && !cashShort;
+  } else if (method == "transferencia") {
+    $("#blockTransfer").show();
+
+    ok = ok && $.trim($("#idTransferPay").val()) !== "";
+  }
+
+  $("#confirmCheckout").prop("disabled", !ok);
+}
+
+/*=============================================
+The client already chosen in the panel
+=============================================*/
+function checkoutClientLabel() {
+  var name = $.trim($("#clientList option:selected").text());
+
+  $("#checkoutClientLabel").html(
+    name !== "" && name !== "Buscar" ? checkoutEscape(name) : "Asignar cliente al pedido"
+  );
+}
+
+/*=============================================
+Open the checkout
+=============================================*/
+$(document).on("click", "#openCheckout", function () {
   if ($("#addProduct tr").length == 0) {
     fncToastr("error", "No hay productos añadidos");
     return;
   }
 
-  var method = $(this).attr("method");
-  $("#modalPayMethod").modal("show");
-  $("#modalPayMethod").on("shown.bs.modal", function () {
-    $("#idOrderPay").val($("#orderHeader").attr("idOrder"));
-    $("#methodPay").val(method);
+  $("#idOrderPay").val($("#orderHeader").attr("idOrder"));
+  $("#payMethodSelect").val("efectivo");
+  $("#toggleMixto").attr("on", "no").removeClass("backColor");
+  $("#extraDiscount, #cashReceived, #mixtoCash, #mixtoCard, #idTransferPay, #checkoutNote").val("");
 
-    /*=============================================
-		Ocultar todos los métodos
-		=============================================*/
-    var allMethods = $(".allMethods");
-    allMethods.each((i) => {
-      $(allMethods[i]).hide();
-    });
+  checkoutClientLabel();
+  checkoutRefresh();
 
-    /*=============================================
-		Activar formulario efectivo
-		=============================================*/
-    if (method == "efectivo") {
-      $("#typePay").html("en efectivo");
-      $("#methodCash").show();
-      $("#totalPayCash").val($("#granTotal span").attr("granTotal"));
+  $("#modalCheckout").modal("show");
+});
 
-      /*=============================================
-			Mostrar la diferencia
-			=============================================*/
-      $(document).on("change", "#cashPay", function () {
-        var total = Number($("#granTotal span").attr("granTotal"));
-        var cash = Number($(this).val());
+$(document).on(
+  "input",
+  "#extraDiscount, #cashReceived, #mixtoCash, #mixtoCard, #idTransferPay",
+  function () {
+    checkoutRefresh();
+  }
+);
 
-        $("#returnPay").val((cash - total).toFixed(2));
+$(document).on("change", "#payMethodSelect", function () {
+  checkoutRefresh();
+});
 
-        if (cash - total < 0) {
-          $("#returnPay").after(
-            `<div class="alert alert-danger rounded mt-3 alertReturn">El monto a devolver no puede ser negativo</div>`
-          );
-        } else {
-          $(".alertReturn").remove();
-        }
-      });
-      $("#idTransferPay").attr("required", false);
-    }
+$(document).on("click", "#toggleMixto", function () {
+  var on = $(this).attr("on") == "yes";
 
-    /*=============================================
-		Activar formulario transferencia
-		=============================================*/
-    if (method == "transferencia") {
-      $("#typePay").html("con transferencia");
-      $("#methodTransfer").show();
-      $("#totalPayTransfer").val($("#granTotal span").attr("granTotal"));
-      $("#idTransferPay").attr("required", true);
+  $(this)
+    .attr("on", on ? "no" : "yes")
+    .toggleClass("backColor", !on);
 
-      /*=============================================
-			Guardar el Id de la Transferencia
-			=============================================*/
-      $(document).on("change", "#idTransferPay", function () {
-        $("#transferPay").val($(this).val());
-      });
-    }
+  checkoutRefresh();
+});
 
-    /*=============================================
-		Activar formulario Tarjeta
-		=============================================*/
-    if (method == "tarjeta") {
-      $("#typePay").html("con tarjeta");
-      $("#methodCard").show();
-      $("#totalPayCard").val($("#granTotal span").attr("granTotal"));
-      $("#idTransferPay").attr("required", false);
-    }
-  });
+$(document).on("click", ".quickCash", function () {
+  $("#cashReceived").val($(this).attr("amount"));
+  checkoutRefresh();
+});
+
+$(document).on("click", "#exactCash", function () {
+  $("#cashReceived").val(checkoutTotal());
+  checkoutRefresh();
 });
 
 /*=============================================
-Remover alertas del POS
+The client is picked in the panel, so the button sends the cashier there and
+brings the checkout back when that modal closes
+=============================================*/
+$(document).on("click", "#checkoutClient", function () {
+  $("#modalCheckout").modal("hide");
+
+  $("#modalClient").one("hidden.bs.modal", function () {
+    checkoutClientLabel();
+    checkoutRefresh();
+    $("#modalCheckout").modal("show");
+  });
+
+  $("#addClient").trigger("click");
+});
+
+/*=============================================
+Hand the payment to the form. The server clamps the discount and checks the
+amounts again, this only keeps an unpayable order from being sent
+=============================================*/
+$(document).on("submit", "#formCheckout", function (event) {
+  var total = checkoutTotal();
+  var mixto = $("#toggleMixto").attr("on") == "yes";
+  var method = mixto ? "mixto" : $("#payMethodSelect").val();
+  var cash = 0;
+  var card = 0;
+
+  if (mixto) {
+    cash = Number($("#mixtoCash").val()) || 0;
+    card = Number($("#mixtoCard").val()) || 0;
+  } else if (method == "efectivo") {
+    cash = Number($("#cashReceived").val()) || 0;
+  }
+
+  if (total <= 0) {
+    event.preventDefault();
+    fncToastr("error", "La orden no tiene productos");
+    return;
+  }
+
+  if ((mixto || method == "efectivo") && cash + card < total) {
+    event.preventDefault();
+    fncToastr("error", "El pago no cubre el total");
+    return;
+  }
+
+  if (method == "transferencia" && $.trim($("#idTransferPay").val()) === "") {
+    event.preventDefault();
+    fncToastr("error", "Ingresa el id de la transferencia");
+    return;
+  }
+
+  $("#methodPay").val(method);
+  $("#extraDiscountPay").val((Number($("#granTotal span").attr("granTotal")) || 0) - total);
+  $("#notePay").val($("#checkoutNote").val());
+  $("#transferPay").val(method == "transferencia" ? $("#idTransferPay").val() : "");
+  $("#cashPay").val(cash);
+  $("#cardPay").val(card);
+});
+
+/*=============================================
+Clear the POS alerts
 =============================================*/
 if ($(".alertPos").length > 0) {
   setTimeout(() => {
     $(".alertPos").remove();
   }, 10000);
+}
+
+/*=============================================
+The sale receipt. Called from the checkout response, which builds the
+ticket server side and hands it over already rendered
+=============================================*/
+
+function fncShowReceipt(html, transaction) {
+  if (!html) {
+    window.location = "/posify";
+    return;
+  }
+
+  fncSweetAlert("close", "", "");
+
+  $("#saleTicket").html(html);
+  $("#receiptTransaction").html("Orden # " + $("<div>").text(transaction || "").html());
+  $("#modalReceipt").modal("show");
+}
+
+/*=============================================
+A charged order cannot be edited, so leaving the receipt starts a new sale
+=============================================*/
+
+$(document).on("click", "#finishSale, #closeReceipt", function () {
+  window.location = "/posify";
+});
+
+$(document).on("click", "#printReceipt", function () {
+  printTicket($("#saleTicket").html(), "Recibo de venta");
+});
+
+/*=============================================
+Sized to the content: Chromium ignores "size: 80mm auto" and falls back
+to letter, so the height is measured and written in millimetres
+=============================================*/
+
+function printTicket(html, title) {
+  var win = window.open("", "_blank", "width=420,height=640");
+
+  win.document.write(
+    "<html><head><title>" + title + "</title>" +
+    '<link rel="stylesheet" href="/views/assets/css/ticket/ticket.css">' +
+    "<style>body{margin:0}</style></head><body>" + html + "</body></html>"
+  );
+
+  win.document.close();
+
+  var sizeAndPrint = function () {
+    var strip = win.document.querySelector(".tk");
+    var px = strip ? strip.offsetHeight : win.document.body.scrollHeight;
+    var mm = Math.ceil((px * 25.4) / 96) + 6;
+
+    var page = win.document.createElement("style");
+    page.textContent = "@page{size:80mm " + mm + "mm;margin:3mm}";
+    win.document.head.appendChild(page);
+
+    win.focus();
+    win.print();
+  };
+
+  if (win.document.readyState === "complete") {
+    setTimeout(sizeAndPrint, 200);
+  } else {
+    win.onload = function () { setTimeout(sizeAndPrint, 200); };
+  }
 }

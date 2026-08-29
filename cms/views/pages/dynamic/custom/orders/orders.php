@@ -50,4 +50,87 @@ Custom
 	<button type="button" class="btn btn-default rounded backColor newOrder"><i class="bi bi-cart4"></i> Crear Orden</button>
 	<button type="button" class="btn btn-default rounded bg-orange mx-1 removeOrder" <?php if (!empty($order)): ?>idOrder="<?php echo $order->id_order ?>" <?php else: ?> idOrder <?php endif ?>><i class="fas fa-broom"></i> Remover Orden</button>
 	<button type="button" class="btn btn-default rounded bg-teal" data-bs-toggle="modal" data-bs-target="#modalSearchOrder"><i class="bi bi-search"></i> Buscar Orden</button>
+
+<?php
+
+/*=============================================
+The day at a glance, above the catalogue. Same numbers the till closing
+reconciles against, so both screens cannot disagree
+=============================================*/
+
+require_once __DIR__ . "/../../../../../../lib/cash.session.php";
+require_once __DIR__ . "/../../../../../../lib/money.php";
+require_once __DIR__ . "/../../../../../../lib/office.guard.php";
+require_once __DIR__ . "/../../../../../../lib/view.php";
+
+$posOffice = (int) OfficeGuard::current();
+$posDate   = date("Y-m-d");
+$posTill   = $posOffice > 0 ? CashSession::open($posOffice) : null;
+$posStart  = $posTill !== null ? (float) $posTill["start_cash"] : 0.0;
+
+$posReport = $posOffice > 0
+    ? CashSession::report($posOffice, $posDate)
+    : ["orders" => 0, "total" => 0.0, "top" => []];
+
+$posBills = $posOffice > 0
+    ? CashSession::summary($posOffice, $posDate, $posStart)["bills"]
+    : 0.0;
+
+?>
+
+<div class="row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-2 mt-3">
+
+    <div class="col">
+        <div class="card rounded h-100">
+            <div class="card-body py-3">
+                <small class="text-muted">Ventas hoy</small>
+                <h4 class="mb-0 font-weight-bold"><?php echo (int) $posReport["orders"] ?></h4>
+                <small class="text-muted">$ <?php echo Money::amount($posReport["total"]) ?></small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card rounded h-100">
+            <div class="card-body py-3">
+                <small class="text-muted">Base del día</small>
+                <?php if ($posTill !== null): ?>
+                    <h4 class="mb-0 font-weight-bold text-green">$ <?php echo Money::amount($posStart) ?></h4>
+                    <small class="text-muted">Caja abierta</small>
+                <?php else: ?>
+                    <h4 class="mb-0 font-weight-bold text-muted">$ 0</h4>
+                    <small class="text-red">Caja cerrada</small>
+                <?php endif ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card rounded h-100">
+            <div class="card-body py-3">
+                <small class="text-muted">Egresos</small>
+                <h4 class="mb-0 font-weight-bold">$ <?php echo Money::amount($posBills) ?></h4>
+                <small class="text-muted">Gastos del día</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card rounded h-100">
+            <div class="card-body py-3">
+                <small class="text-muted">Más vendidos hoy</small>
+                <?php if (!empty($posReport["top"])): ?>
+                    <ol class="ps-3 mb-0 mt-1">
+                        <?php foreach ($posReport["top"] as $posItem): ?>
+                            <li class="small text-truncate"><?php echo View::text($posItem["name"]) ?> <span class="text-muted">x<?php echo (int) $posItem["qty"] ?></span></li>
+                        <?php endforeach ?>
+                    </ol>
+                <?php else: ?>
+                    <p class="small text-muted mb-0 mt-2">Sin ventas todavía</p>
+                <?php endif ?>
+            </div>
+        </div>
+    </div>
+
+</div>
 </div>
