@@ -1,7 +1,23 @@
 <?php
 
+require_once __DIR__ . "/../../../../../lib/view.php";
+require_once __DIR__ . "/../../../../../lib/money.php";
+require_once __DIR__ . "/../../../../../lib/inventory.php";
+
+/**
+ * Included from dynamic.php, which defines the variables below.
+ *
+ * @var object   $module      Table module being rendered
+ * @var object   $page        Page the module belongs to
+ * @var string[] $routesArray Url segments: page / manage / id / copy
+ */
+
+require_once __DIR__ . "/../../../../../lib/walkin.client.php";
+require_once __DIR__ . "/../../../../../lib/cash.session.php";
+require_once __DIR__ . "/../../../../../lib/office.guard.php";
+
 /*=============================================
-Traemos columnas de la tabla
+Read the table columns
 =============================================*/
 $url = "columns?linkTo=id_module_column&equalTo=" . $module->id_module;
 $method = "GET";
@@ -18,12 +34,12 @@ if ($columns->status == 200) {
 }
 
 /*=============================================
-Agregar las columnas a los datos del módulo
+Attach the columns to the module data
 =============================================*/
 $module->columns = $columns;
 
 /*=============================================
-Traemos contenido de la tabla
+Read the table contents
 =============================================*/
 $limit = 10;
 $totalPages = 0;
@@ -45,7 +61,22 @@ if ($table->status == 200) {
 	$table = $table->results;
 
 	/*=============================================
-	Traemos contenido total de la tabla
+	A product has one stock per branch now, so the rows carry the
+	one for the branch being looked at
+	=============================================*/
+
+	if ($module->title_module == "products") {
+
+		$stockMap = Inventory::mapFor((int) OfficeGuard::current());
+
+		foreach ($table as $row) {
+
+			$row->qty_stock = $stockMap[(int) $row->id_product] ?? 0;
+		}
+	}
+
+	/*=============================================
+	Read the full table contents
 	=============================================*/
 	if ($_SESSION["admin"]->id_office_admin == 0 || !in_array("id_office_" . $module->suffix_module, array_column($module->columns, "title_column"))) {
 
@@ -66,7 +97,7 @@ $totalColumns = 3;
 ?>
 
 <!--===========================================
-Cargamos el gestor de datos
+Load the data manager
 =============================================-->
 
 <?php if (!empty($routesArray[1]) && $routesArray[1] == "manage"): ?>
@@ -80,7 +111,7 @@ Cargamos el gestor de datos
 	?>
 
 	<!--===========================================
-Cargamos el módulo tabla
+Load the table module
 =============================================-->
 
 <?php else: ?>
@@ -107,20 +138,50 @@ Cargamos el módulo tabla
 		<div class="card rounded p-3 w-100" id="cardTable">
 
 			<!--=========================================
-        Cabecera de la tabla
+        Table header
         ===========================================-->
 
 			<div class="card-header bg-white">
 
+				<?php if ($module->suffix_module == "cash"):
+
+					$stale = CashSession::open((int) OfficeGuard::current());
+
+					if ($stale !== null && $stale["date_created_cash"] < date("Y-m-d")): ?>
+
+						<div class="alert alert-warning rounded d-flex justify-content-between align-items-center">
+							<span>La caja del <?php echo View::raw($stale["date_created_cash"]) ?> sigue abierta. No se puede vender hasta cerrarla.</span>
+							<button type="button" class="btn btn-danger btn-sm rounded" data-bs-toggle="modal" data-bs-target="#modalCloseCash">Cerrar caja</button>
+						</div>
+
+						<script>var cashIsStale = true;</script>
+
+					<?php endif ?>
+				<?php endif ?>
+
 				<div class="d-lg-flex justify-content-between">
 
 					<!--=========================================
-		        Botón para crear un nuevo registro
+		        Button that creates a record
 		        ===========================================-->
 
 					<div class="mb-3">
 
-						<?php if ($_SESSION["admin"]->rol_admin == "superadmin" || $module->editable_module == 1): ?>
+						<?php if ($module->suffix_module == "cash"):
+
+						$openTill = CashSession::open((int) OfficeGuard::current()); ?>
+
+						<?php if ($openTill === null): ?>
+
+							<button type="button" class="btn btn-default btn-sm rounded backColor px-3 py-2" data-bs-toggle="modal" data-bs-target="#modalOpenCash">Abrir caja</button>
+
+						<?php else: ?>
+
+							<button type="button" class="btn btn-danger btn-sm rounded px-3 py-2" data-bs-toggle="modal" data-bs-target="#modalCloseCash">Cerrar caja</button>
+
+						<?php endif ?>
+
+					<?php elseif ($_SESSION["admin"]->rol_admin == "superadmin" || $module->editable_module == 1): ?>
 
 							<a href="/<?php echo $module->url_page ?>/manage" class="btn btn-default btn-sm rounded backColor px-3 py-2">Agregar registro
 							</a>
@@ -136,7 +197,7 @@ Cargamos el módulo tabla
 						<ul class="nav justify-content-lg-end">
 
 							<!--=========================================
-				        Botón para rango de fechas
+				        Date range button
 				        ===========================================-->
 
 							<li class="nav-item p-0 me-2 position-relative" style="bottom:5px">
@@ -161,7 +222,7 @@ Cargamos el módulo tabla
 								<li class="nav-item p-0">
 
 									<!--=========================================
-				        	Selección masiva
+				        	Bulk selection
 				        	===========================================-->
 
 									<button type="button" class="btn btn-sm bg-blue rounded border-0 checkAllItems" mode="false">
@@ -169,7 +230,7 @@ Cargamos el módulo tabla
 									</button>
 
 									<!--=========================================
-				        	Cambio Selección masiva
+				        	Bulk selection changed
 				        	===========================================-->
 
 									<?php
@@ -190,7 +251,7 @@ Cargamos el módulo tabla
 									?>
 
 									<!--=========================================
-				        	Cambio Boleano masivo
+				        	Bulk boolean changed
 				        	===========================================-->
 
 									<?php
@@ -211,7 +272,7 @@ Cargamos el módulo tabla
 									?>
 
 									<!--=========================================
-				        	Eliminación masiva
+				        	Bulk delete
 				        	===========================================-->
 
 									<button type="button" class="btn btn-sm bg-maroon rounded border-0 deleteAllItems">
@@ -231,13 +292,13 @@ Cargamos el módulo tabla
 			</div>
 
 			<!--=========================================
-        Cuerpo de la tabla
+        Table body
         ===========================================-->
 
 			<div class="card-body">
 
 				<!--========================================
-			Filtros Iniciales
+			Initial filters
 			=========================================-->
 
 				<input type="hidden" id="contentModule" value='<?php echo json_encode($module) ?>'>
@@ -252,13 +313,13 @@ Cargamos el módulo tabla
 				<input type="hidden" id="idOffice" value="<?php echo $_SESSION["admin"]->id_office_admin ?>">
 
 				<!--=========================================
-	        Bloque de filtros
+	        Filters block
 	        ===========================================-->
 
 				<div class="d-lg-flex justify-content-lg-between">
 
 					<!--=========================================
-		        Filtar cantidad de registros
+		        Filter the record count
 		        ===========================================-->
 
 					<div class="mb-3 row">
@@ -283,7 +344,7 @@ Cargamos el módulo tabla
 					</div>
 
 					<!--=========================================
-		        Filtar por búsqueda de registros
+		        Filter records by search
 		        ===========================================-->
 
 					<div class="mb-3">
@@ -295,7 +356,7 @@ Cargamos el módulo tabla
 				</div>
 
 				<!--=========================================
-	        Bloque de tabla
+	        Table block
 	        ===========================================-->
 
 				<div class="table-responsive">
@@ -364,12 +425,29 @@ Cargamos el módulo tabla
 
 										<td><?php echo ($key + 1) ?></td>
 
+										<?php
+
+										/*=============================================
+										The walk in customer takes no actions at all:
+										the POS depends on it staying exactly as it is
+										=============================================*/
+
+										$isLocked = $module->suffix_module == "cash";
+
+										$isWalkIn = $module->title_module == "clients"
+											&& isset($value["cc_client"])
+											&& (string) $value["cc_client"] === WalkInClient::DOCUMENT;
+
+										?>
+
 										<?php if ($_SESSION["admin"]->rol_admin == "superadmin" || $module->editable_module == 1): ?>
 
 											<td>
-												<div class="form-check formCheck">
-													<input class="form-check-input checkItem" type="checkbox" idItem="<?php echo base64_encode($value["id_" . $module->suffix_module]) ?>">
-												</div>
+												<?php if (!$isWalkIn && !$isLocked): ?>
+													<div class="form-check formCheck">
+														<input class="form-check-input checkItem" type="checkbox" idItem="<?php echo base64_encode($value["id_" . $module->suffix_module]) ?>">
+													</div>
+												<?php endif ?>
 											</td>
 
 										<?php endif ?>
@@ -383,36 +461,36 @@ Cargamos el módulo tabla
 													<?php
 
 													/*=============================================
-										Contenido tipo Imagen
+										Image content
 										=============================================*/
 
 													if ($item->type_column == "image") {
 
-														echo '<a href="' . urldecode($value[$item->title_column]) . '" target="_blank">
-												<img src="' . urldecode($value[$item->title_column]) . '" class="rounded" style="width:60px; height:60px; object-fit: cover; object-position:center;">
+														echo '<a href="' . View::url($value[$item->title_column]) . '" target="_blank">
+												<img src="' . View::url($value[$item->title_column]) . '" class="rounded" style="width:60px; height:60px; object-fit: cover; object-position:center;">
 											</a>';
 
 														/*=============================================
-										Contenido tipo Video
+										Video content
 										=============================================*/
 													} else if ($item->type_column == "video") {
 
-														echo '<a href="' . urldecode($value[$item->title_column]) . '" target="_blank">
+														echo '<a href="' . View::url($value[$item->title_column]) . '" target="_blank">
 												<img src="/views/assets/img/video.png" class="rounded" style="width:60px; height:60px; object-fit: cover; object-position:center;">
 											</a>';
 
 														/*=============================================
-										Contenido tipo otros Archivos
+										Other file content
 										=============================================*/
 													} else if ($item->type_column == "file") {
 
-														echo '<a href="' . urldecode($value[$item->title_column]) . '" target="_blank">
+														echo '<a href="' . View::url($value[$item->title_column]) . '" target="_blank">
 												<img src="/views/assets/img/file.png" class="rounded" style="width:60px; height:60px; object-fit: cover; object-position:center;">
 											</a>';
 
 
 														/*=============================================
-										Contenido tipo Boleano
+										Boolean content
 										=============================================*/
 													} else if ($item->type_column == "boolean") {
 
@@ -439,11 +517,11 @@ Cargamos el módulo tabla
 														}
 
 														/*=============================================
-										Contenido tipo Array
+										Array content
 										=============================================*/
 													} else if ($item->type_column == "array") {
 
-														$typeArray = explode(",", urldecode($value[$item->title_column]));
+														$typeArray = explode(",", $value[$item->title_column]);
 
 														foreach ($typeArray as $num => $elem) {
 
@@ -451,11 +529,11 @@ Cargamos el módulo tabla
 														}
 
 														/*=============================================
-										Contenido tipo Objetos
+										Object content
 										=============================================*/
 													} else if ($item->type_column == "object") {
 
-														$typeJSON = json_decode(urldecode($value[$item->title_column]));
+														$typeJSON = json_decode($value[$item->title_column]);
 
 														foreach ($typeJSON as $num => $elem) {
 
@@ -463,28 +541,28 @@ Cargamos el módulo tabla
 														}
 
 														/*=============================================
-										Contenido tipo Enlace
+										Link content
 										=============================================*/
 													} else if ($item->type_column == "link") {
 
-														echo '<a href="' . $value[$item->title_column] . '" target="_blank" class="badge badge-default border rounded bg-indigo">' . TemplateController::reduceText(urldecode($value[$item->title_column]), 20) . '</a>';
+														echo '<a href="' . View::url($value[$item->title_column]) . '" target="_blank" class="badge badge-default border rounded bg-indigo">' . View::raw(TemplateController::reduceText($value[$item->title_column], 20)) . '</a>';
 
 														/*=============================================
-										Contenido tipo Color
+										Color content
 										=============================================*/
 													} else if ($item->type_column == "color") {
 
-														echo '<div class="rounded" style="width:25px; height:25px; background:' . urldecode($value[$item->title_column]) . '"></div>';
+														echo '<div class="rounded" style="width:25px; height:25px; background:' . View::text($value[$item->title_column]) . '"></div>';
 
 														/*=============================================
-										Contenido tipo Double
+										Double content
 										=============================================*/
 													} else if ($item->type_column == "money") {
 
-														echo '$' . number_format(urldecode($value[$item->title_column]), 2);
+														echo '$' . Money::amount($value[$item->title_column]);
 
 														/*=============================================
-										Contenido tipo Relaciones
+										Relations content
 										=============================================*/
 													} else if ($item->type_column == "relations") {
 
@@ -501,21 +579,21 @@ Cargamos el módulo tabla
 															$relation = CurlController::request($url, $method, $fields);
 															$arrayRelation  = (array)$relation->results[0];
 
-															echo '<a href="' . $urlPage . '/manage/' . base64_encode($value[$item->title_column]) . '" target="_blank" class="badge badge-default border rounded bg-indigo">' . urldecode($arrayRelation[array_keys($arrayRelation)[1]]) . '</a>';
+															echo '<a href="' . $urlPage . '/manage/' . base64_encode($value[$item->title_column]) . '" target="_blank" class="badge badge-default border rounded bg-indigo">' . View::text($arrayRelation[array_keys($arrayRelation)[1]]) . '</a>';
 														} else {
 
 															echo $value[$item->title_column];
 														}
 
 														/*=============================================
-													Contenido tipo Órden
+													Order content
 													=============================================*/
 													} else if ($item->type_column == "order") {
 
 
 														echo '<input type="number" class="form-control form-control-sm rounded changeOrder" value="' . $value[$item->title_column] . '" style="width:55px" idItem="' . base64_encode($value["id_" . $module->suffix_module]) . '" table="' . $module->title_module . '" suffix="' . $module->suffix_module . '" column="' . $item->title_column . '">';
 													} else if ($item->type_column == "posify") {
-														echo '<a href="/posify?order=' . urldecode($value[$item->title_column]) . '" style="color:inherit">' . urldecode($value[$item->title_column]) . '</a>';
+														echo '<a href="/posify?order=' . View::text($value[$item->title_column]) . '" style="color:inherit">' . View::text($value[$item->title_column]) . '</a>';
 													} else if ($item->type_column == "stock") {
 														if ($value[$item->title_column] < 50) {
 															$colorStock = "bg-maroon";
@@ -529,7 +607,7 @@ Cargamos el módulo tabla
 														echo '<span class="badge badge-sm badge-default ' . $colorStock . ' rounded py-1 px-3 mx-1 mt-1 text-uppercase small">' . $value[$item->title_column] . '</span>';
 													} else {
 
-														echo TemplateController::reduceText(urldecode($value[$item->title_column]), 25);
+														echo View::raw(TemplateController::reduceText($value[$item->title_column], 25));
 													}
 
 
@@ -543,18 +621,37 @@ Cargamos el módulo tabla
 
 										<?php if ($_SESSION["admin"]->rol_admin == "superadmin" || $module->editable_module == 1): ?>
 
+											<?php
+
+											/*=============================================
+											The walk in customer takes no actions at all:
+											the POS depends on it staying exactly as it is
+											=============================================*/
+
+											$isLocked = $module->suffix_module == "cash";
+
+											$isWalkIn = $module->title_module == "clients"
+												&& isset($value["cc_client"])
+												&& (string) $value["cc_client"] === WalkInClient::DOCUMENT;
+
+											?>
+
 											<td class="text-center">
-												<a href="/<?php echo $module->url_page ?>/manage/<?php echo base64_encode($value["id_" . $module->suffix_module]) ?>/copy" class="btn btn-sm text-dark rounded m-0 p-0 border-0">
-													<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-copy" viewBox="0 0 16 16">
-														<path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z" />
-													</svg>
-												</a>
-												<a href="/<?php echo $module->url_page ?>/manage/<?php echo base64_encode($value["id_" . $module->suffix_module]) ?>" class="btn btn-sm text-primary rounded m-0 p-0 border-0">
-													<i class="bi bi-pencil-square"></i>
-												</a>
-												<button type="button" class="btn btn-sm text-maroon rounded m-0 p-0 border-0 deleteItem" idItem="<?php echo base64_encode($value["id_" . $module->suffix_module]) ?>" table="<?php echo $module->title_module ?>" suffix="<?php echo $module->suffix_module ?>">
-													<i class="bi bi-trash"></i>
-												</button>
+												<?php if (!$isWalkIn && !$isLocked): ?>
+													<a href="/<?php echo $module->url_page ?>/manage/<?php echo base64_encode($value["id_" . $module->suffix_module]) ?>/copy" class="btn btn-sm text-dark rounded m-0 p-0 border-0">
+														<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-copy" viewBox="0 0 16 16">
+															<path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z" />
+														</svg>
+													</a>
+													<a href="/<?php echo $module->url_page ?>/manage/<?php echo base64_encode($value["id_" . $module->suffix_module]) ?>" class="btn btn-sm text-primary rounded m-0 p-0 border-0">
+														<i class="bi bi-pencil-square"></i>
+													</a>
+													<button type="button" class="btn btn-sm text-maroon rounded m-0 p-0 border-0 deleteItem" idItem="<?php echo base64_encode($value["id_" . $module->suffix_module]) ?>" table="<?php echo $module->title_module ?>" suffix="<?php echo $module->suffix_module ?>">
+														<i class="bi bi-trash"></i>
+													</button>
+												<?php else: ?>
+													<span class="badge badge-default border rounded text-muted small">Del sistema</span>
+												<?php endif ?>
 											</td>
 
 										<?php endif ?>
@@ -579,13 +676,13 @@ Cargamos el módulo tabla
 				<?php if (!empty($table)): ?>
 
 					<!--=========================================
-	        		Bloque final
+	        		Final block
 	        		===========================================-->
 
 					<div class="d-lg-flex justify-content-lg-between mt-2 mb-0">
 
 						<!--=========================================
-	        			Visualización de registros
+	        			Record display
 	        			===========================================-->
 
 						<div class="mb-3 blockFooter" id="cont-filters">
@@ -599,7 +696,7 @@ Cargamos el módulo tabla
 						</div>
 
 						<!--=========================================
-	        	Paginación
+	        	Pagination
 	        	===========================================-->
 
 						<div class="mb-3 blockFooter" id="cont-pagination">
@@ -623,6 +720,13 @@ Cargamos el módulo tabla
 
 	include "views/modules/modals/booleans.php";
 	include "views/modules/modals/selects.php";
+
+	if ($module->suffix_module == "cash") {
+
+		include "views/modules/modals/cash.php";
+
+		echo '<script src="' . View::asset("/views/assets/js/cash/cash.js") . '"></script>';
+	}
 
 	?>
 

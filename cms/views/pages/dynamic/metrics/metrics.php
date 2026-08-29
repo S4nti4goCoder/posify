@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . "/../../../../../lib/money.php";
 
 $metric = 0;
 
@@ -7,56 +8,73 @@ $content = json_decode($module->content_module);
 $suffix = explode("_", $content->column);
 $suffix = end($suffix);
 
+require_once __DIR__ . "/../../../../../api/models/connection.php";
+
 /*=============================================
-Traer info de la métrica
+Counted, summed and averaged by the database. This used to select every
+row of the table and add them up in a loop.
+
+The table and column come from the module settings and cannot be bound,
+so they are proven against the catalog before reaching the query.
 =============================================*/
-if ($_SESSION["admin"]->id_office_admin > 0) {
-	if ($module->title_module == "ventas" && $module->id_page_module == 13) {
-		$url = $content->table . "?linkTo=status_order,id_office_order&equalTo=Completada," . $_SESSION["admin"]->id_office_admin . "&select=" . $content->column;
-	} else {
-		$url = $content->table . "?linkTo=id_office_" . $suffix . "&equalTo=" . $_SESSION["admin"]->id_office_admin . "&select=" . $content->column;
+
+$table  = (string) $content->table;
+$column = (string) $content->column;
+
+$valid = SchemaGuard::tableExists($table)
+	&& in_array($column, SchemaGuard::columnsOf($table), true);
+
+if ($valid) {
+
+	$where = array();
+	$args  = array();
+
+	if ($module->title_module == "ventas" && $module->id_page_module == 13
+		&& in_array("status_order", SchemaGuard::columnsOf($table), true)) {
+
+		$where[] = "status_order = 'Completada'";
 	}
-} else {
-	if ($module->title_module == "ventas" && $module->id_page_module == 13) {
-		$url = $content->table . "?linkTo=status_order&equalTo=Completada&select=" . $content->column;
-	} else {
-		$url = $content->table . "?select=" . $content->column;
+
+	$officeColumn = "id_office_" . $suffix;
+
+	if ($_SESSION["admin"]->id_office_admin > 0
+		&& in_array($officeColumn, SchemaGuard::columnsOf($table), true)) {
+
+		$where[] = "`" . $officeColumn . "` = :office";
+		$args[":office"] = (int) $_SESSION["admin"]->id_office_admin;
 	}
-}
 
-$method = "GET";
-$fields = array();
+	$sql = "SELECT COUNT(*) AS rows_total,
+	               COALESCE(SUM(`" . $column . "`), 0) AS rows_sum,
+	               COALESCE(AVG(`" . $column . "`), 0) AS rows_avg
+	          FROM `" . $table . "`";
 
-$response = CurlController::request($url, $method, $fields);
-if ($response->status == 200) {
+	if (!empty($where)) {
 
-	/*=============================================
-	Total de valores
-	=============================================*/
+		$sql .= " WHERE " . implode(" AND ", $where);
+	}
+
+	$stmt = Connection::connect()->prepare($sql);
+	$stmt->execute($args);
+
+	$row = $stmt->fetch(PDO::FETCH_ASSOC);
+
 	if ($content->type == "total") {
-		$metric = $response->total;
+
+		$metric = (int) $row["rows_total"];
 	}
 
-	/*=============================================
-	Sumar valores
-	=============================================*/
 	if ($content->type == "add") {
-		foreach (json_decode(json_encode($response->results), true) as $key => $value) {
-			$metric += $value[$content->column];
-		}
+
+		$metric = (float) $row["rows_sum"];
 	}
 
-	/*=============================================
-	Promedio de valores
-	=============================================*/
 	if ($content->type == "average") {
-		$total = $response->total;
-		foreach (json_decode(json_encode($response->results), true) as $key => $value) {
-			$metric += $value[$content->column];
-		}
-		$metric = $metric / $total;
+
+		$metric = (float) $row["rows_avg"];
 	}
 }
+
 
 ?>
 
@@ -78,12 +96,21 @@ if ($response->status == 200) {
 		<div class="d-flex justify-content-between p-3">
 			<div class="inner">
 				<h5 class="font-weight-bold text-capitalize"><?php echo $module->title_module ?></h5>
-				<?php if ($content->config == "unit"): ?>
+				<?php if (!$valid): ?>
+
+					<h2 class="pt-2" title="La columna configurada no existe en la base">&mdash;</h2>
+					<small class="d-block">Configuración desactualizada</small>
+
+				<?php else: ?>
+
+					<?php if ($content->config == "unit"): ?>
 					<h2 class="pt-2"><?php echo $metric ?></h1>
 					<?php endif ?>
 					<?php if ($content->config == "price"): ?>
-						<h2 class="pt-2">$<?php echo number_format($metric, 2) ?></h1>
+						<h2 class="pt-2">$<?php echo Money::amount($metric) ?></h1>
 						<?php endif ?>
+
+				<?php endif ?>
 			</div>
 			<div class="display-2 text-center pt-2 pe-2" style="color:rgb(<?php echo $content->color ?>) !important">
 				<i class="<?php echo $content->icon ?>"></i>

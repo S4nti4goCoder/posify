@@ -7,7 +7,7 @@ class TemplateController
 {
 
 	/*=============================================
-	Traemos la vista principal de la plantilla
+	Load the main template view
 	=============================================*/
 
 	public function index()
@@ -17,27 +17,61 @@ class TemplateController
 	}
 
 	/*=============================================
-	Identificar el tipo de columna
+	Identify the column type
 	=============================================*/
 
 	static public function typeColumn($value)
 	{
 
-		if (
-			$value == "text" ||
-			$value == "textarea" ||
-			$value == "image" ||
-			$value == "video" ||
-			$value == "file" ||
-			$value == "link" ||
-			$value == "select" ||
-			$value == "array" ||
-			$value == "color" ||
-			$value == "password" ||
-			$value == "email"
-		) {
+		// nothing below matched leaves $type undefined, and the DDL comes out broken
+		$type = "TEXT NULL DEFAULT NULL";
+
+		// posify holds the transaction number, stock the running balance
+		if ($value == "posify") {
+
+			$type = "VARCHAR(50) NULL DEFAULT NULL";
+		}
+
+		if ($value == "stock") {
+
+			$type = "INT NULL DEFAULT '0'";
+		}
+
+		// sized to what each one holds: a bounded column can be indexed whole
+		// and stays in the row instead of being fetched from outside it
+		if ($value == "textarea") {
 
 			$type = "TEXT NULL DEFAULT NULL";
+		}
+
+		if ($value == "text" || $value == "array") {
+
+			$type = "VARCHAR(500) NULL DEFAULT NULL";
+		}
+
+		if ($value == "image" || $value == "video" || $value == "file" || $value == "link") {
+
+			$type = "VARCHAR(500) NULL DEFAULT NULL";
+		}
+
+		if ($value == "email") {
+
+			$type = "VARCHAR(191) NULL DEFAULT NULL";
+		}
+
+		if ($value == "select") {
+
+			$type = "VARCHAR(100) NULL DEFAULT NULL";
+		}
+
+		if ($value == "password") {
+
+			$type = "VARCHAR(255) NULL DEFAULT NULL";
+		}
+
+		if ($value == "color") {
+
+			$type = "VARCHAR(30) NULL DEFAULT NULL";
 		}
 
 		if ($value == "object") {
@@ -60,9 +94,15 @@ class TemplateController
 			$type = "INT NULL DEFAULT '1'";
 		}
 
-		if ($value == "double" || $value == "money") {
+		if ($value == "double") {
 
 			$type = "DOUBLE NULL DEFAULT '0'";
+		}
+
+		// a float cannot hold an exact amount, and the error grows with every sum
+		if ($value == "money") {
+
+			$type = "DECIMAL(14,2) NULL DEFAULT '0'";
 		}
 
 		if ($value == "date") {
@@ -94,7 +134,7 @@ class TemplateController
 	}
 
 	/*=============================================
-	Función Reducir texto
+	Shorten text
 	=============================================*/
 
 	static public function reduceText($value, $limit)
@@ -109,14 +149,14 @@ class TemplateController
 	}
 
 	/*=============================================
-	Devuelva la miniatura de la lista
+	List thumbnail
 	=============================================*/
 
 	static public function returnThumbnailList($value)
 	{
 
 		/*=============================================
-		Capturar miniatura imagen
+		Image thumbnail
 		=============================================*/
 
 		if (explode("/", $value->type_file)[0] == "image") {
@@ -125,7 +165,7 @@ class TemplateController
 		}
 
 		/*=============================================
-		Capturar miniatura video
+		Video thumbnail
 		=============================================*/
 
 		if (explode("/", $value->type_file)[0] == "video" && $value->id_folder_file != 4) {
@@ -147,7 +187,7 @@ class TemplateController
 		}
 
 		/*=============================================
-		Capturar miniatura audio
+		Audio thumbnail
 		=============================================*/
 
 		if (explode("/", $value->type_file)[0] == "audio") {
@@ -156,7 +196,7 @@ class TemplateController
 		}
 
 		/*=============================================
-		Capturar miniatura pdf
+		PDF thumbnail
 		=============================================*/
 
 		if (explode("/", $value->type_file)[1] == "pdf") {
@@ -165,7 +205,7 @@ class TemplateController
 		}
 
 		/*=============================================
-		Capturar miniatura zip
+		ZIP thumbnail
 		=============================================*/
 
 		if (explode("/", $value->type_file)[1] == "zip") {
@@ -177,14 +217,14 @@ class TemplateController
 	}
 
 	/*=============================================
-	Devuelva la miniatura de la cuadrícula
+	Grid thumbnail
 	=============================================*/
 
 	static public function returnThumbnailGrid($value)
 	{
 
 		/*=============================================
-		Capturar miniatura imagen
+		Image thumbnail
 		=============================================*/
 
 		if (explode("/", $value->type_file)[0] == "image") {
@@ -193,7 +233,7 @@ class TemplateController
 		}
 
 		/*=============================================
-		Capturar miniatura video
+		Video thumbnail
 		=============================================*/
 
 		if (explode("/", $value->type_file)[0] == "video" && $value->id_folder_file != 4) {
@@ -215,7 +255,7 @@ class TemplateController
 		}
 
 		/*=============================================
-		Capturar miniatura audio
+		Audio thumbnail
 		=============================================*/
 
 		if (explode("/", $value->type_file)[0] == "audio") {
@@ -224,7 +264,7 @@ class TemplateController
 		}
 
 		/*=============================================
-		Capturar miniatura pdf
+		PDF thumbnail
 		=============================================*/
 
 		if (explode("/", $value->type_file)[1] == "pdf") {
@@ -233,7 +273,7 @@ class TemplateController
 		}
 
 		/*=============================================
-		Capturar miniatura zip
+		ZIP thumbnail
 		=============================================*/
 
 		if (explode("/", $value->type_file)[1] == "zip") {
@@ -245,7 +285,7 @@ class TemplateController
 	}
 
 	/*=============================================
-	Función para generar códigos alfanuméricos aleatorios
+	Generate a random alphanumeric code
 	=============================================*/
 
 	static public function genPassword($length)
@@ -260,7 +300,7 @@ class TemplateController
 	}
 
 	/*=============================================
-	Función para enviar correos electrónicos
+	Send email
 	=============================================*/
 
 	static public function sendEmail($subject, $email, $title, $message, $link)
@@ -271,7 +311,7 @@ class TemplateController
 		$mail = new PHPMailer;
 
 		$mail->CharSet = 'utf-8';
-		//$mail->Encoding = 'base64'; //Habilitar al subir el sistema a un hosting
+		//$mail->Encoding = 'base64'; //Enable when deploying to a host
 
 		$mail->isMail();
 
@@ -327,7 +367,7 @@ class TemplateController
 	}
 
 	/*===============================================
-	Función para generar códigos numéricos aleatorios
+	Generate a random numeric code
 	===============================================*/
 	static public function genNumCode($length)
 	{
@@ -338,7 +378,7 @@ class TemplateController
 	}
 
 	/*=============================================
-	Validar no repetir transacción
+	The transaction must not repeat
 	=============================================*/
 	static public function transValidate($numCode)
 	{

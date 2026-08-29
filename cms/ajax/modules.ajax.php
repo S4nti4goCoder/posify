@@ -1,4 +1,8 @@
-<?php 
+<?php
+
+require_once __DIR__ . "/../../lib/csrf.guard.php";
+
+CsrfGuard::enforce();
 
 require_once "../controllers/curl.controller.php";
 require_once "../controllers/install.controller.php";
@@ -6,7 +10,7 @@ require_once "../controllers/install.controller.php";
 class ModulesAjax{
 
 	/*=============================================
-	Eliminar Módulo
+	Delete a module
 	=============================================*/ 
 
 	public $idModuleDelete;
@@ -15,7 +19,7 @@ class ModulesAjax{
 	public function deleteModule(){
 
 		/*=============================================
-		Validar columnas vinculadas al módulo
+		Check the columns linked to the module
 		=============================================*/
 
 		$url = "columns?linkTo=id_module_column&equalTo=".base64_decode($this->idModuleDelete);
@@ -31,7 +35,7 @@ class ModulesAjax{
 		}else{
 
 			/*=============================================
-			Traer la info del módulo para saber si es tabla
+			Read the module data to tell whether it is a table
 			=============================================*/
 
 			$url = "modules?linkTo=id_module&equalTo=".base64_decode($this->idModuleDelete)."&select=type_module,title_module";
@@ -45,7 +49,7 @@ class ModulesAjax{
 				if($module->results[0]->type_module == "tables"){
 
 					/*=============================================
-					Eliminar la tabla de la BD en MySQL
+					Drop the table in MySQL
 					=============================================*/
 
 					$sqlDestroyTable = "DROP TABLE ".$module->results[0]->title_module;
@@ -57,7 +61,7 @@ class ModulesAjax{
 			}
 
 			/*=============================================
-			Eliminar el módulo
+			Delete the module
 			=============================================*/
 
 			$url = "modules?id=".base64_decode($this->idModuleDelete)."&nameId=id_module&token=".$this->token."&table=admins&suffix=admin";
@@ -81,6 +85,6 @@ if(isset($_POST["idModuleDelete"])){
 
 	$ajax = new ModulesAjax();
 	$ajax -> idModuleDelete = $_POST["idModuleDelete"];
-	$ajax -> token = $_POST["token"];
+	$ajax -> token = Session::token();
 	$ajax -> deleteModule();
 }

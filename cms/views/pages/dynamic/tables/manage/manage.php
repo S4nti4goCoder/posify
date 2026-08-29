@@ -1,30 +1,85 @@
-<?php 
+<?php
+
+require_once __DIR__ . "/../../../../../../lib/inventory.php";
+
+/**
+ * Included from tables.php, which defines the variables below.
+ *
+ * @var object   $module      Table module being rendered
+ * @var string[] $routesArray Url segments: page / manage / id / copy
+ */
 
 /*=============================================
-Capturar datos para editar
+Read the data to edit
 =============================================*/
 
-$data = null;
+/*=============================================
+A till is opened and closed through its own modals, which compute the
+takings from the sales. Reaching this form by url would let someone
+type those figures by hand and the arqueo would stop meaning anything.
+=============================================*/
+
+if ($module->suffix_module == "cash") {
+
+	echo '<script>window.location = "/' . $module->url_page . '";</script>';
+
+	return;
+}
+
+$data      = null;
+$recordGone = false;
 
 if(!empty($routesArray[2])){
-	
 
-	$url = $module->title_module."?linkTo=id_".$module->suffix_module."&equalTo=".base64_decode($routesArray[2]);
+	$requestedId = base64_decode($routesArray[2], true);
+
+	/*=============================================
+	A record outside the user's own branch is not theirs to edit
+	=============================================*/
+
+	$url = $module->title_module."?linkTo=id_".$module->suffix_module."&equalTo=".$requestedId;
+
+	if($requestedId !== false
+		&& !OfficeGuard::canSwitch()
+		&& in_array("id_office_".$module->suffix_module, array_column($module->columns, "title_column"))){
+
+		$url = $module->title_module
+			."?linkTo=id_".$module->suffix_module.",id_office_".$module->suffix_module
+			."&equalTo=".$requestedId.",".OfficeGuard::current();
+	}
+
 	$method = "GET";
 	$fields = Array();
 
-	$data = CurlController::request($url,$method,$fields);
+	$response = $requestedId === false || $requestedId === ""
+		? null
+		: CurlController::request($url,$method,$fields);
 
-	if($data->status == 200){
+	/*=============================================
+	Only a real hit becomes $data. Anything else used to leave the raw
+	response object in place, which the form then read as an array and
+	crashed on.
+	=============================================*/
 
-		$data =  json_decode(json_encode($data->results[0]),true);
-		
+	if(!empty($response) && $response->status == 200){
+
+		$data = json_decode(json_encode($response->results[0]),true);
+
+		// the stock shown is the one of the branch being worked in
+		if ($module->title_module == "products") {
+
+			$data["qty_stock"] = Inventory::available((int) $data["id_product"], (int) OfficeGuard::current());
+		}
+
+	}else{
+
+		$recordGone = true;
 	}
 }
 
 
 /*=============================================
-Definiendo Bloques
+Defining the blocks
 =============================================*/
 
 $block1 = ceil(count($module->columns)/2);
@@ -32,9 +87,23 @@ $block2 = count($module->columns) - $block1;
 
 ?>
 
+<?php if ($recordGone): ?>
+
+	<div class="col">
+		<div class="alert alert-warning rounded">
+			El registro no existe o no pertenece a tu sucursal.
+		</div>
+		<a href="/<?php echo $module->url_page ?>" class="btn btn-dark rounded">Regresar</a>
+	</div>
+
+<?php else: ?>
+
 <div class="col">
-	
+
 	<form method="POST" class="needs-validation" novalidate>
+
+		<?php echo CsrfGuard::field() ?>
+
 
 		<?php 
 
@@ -55,7 +124,7 @@ $block2 = count($module->columns) - $block1;
 			<?php endif ?>
 
 			<!--=========================================
-			Cabecera
+			Header
 			===========================================-->
 			
 			<div class="card-header bg-white rounded-top py-3">
@@ -76,7 +145,7 @@ $block2 = count($module->columns) - $block1;
 			</div>
 
 			<!--=========================================
-			Cuerpo
+			Body
 			===========================================-->
 
 			<div class="card-body">
@@ -85,7 +154,7 @@ $block2 = count($module->columns) - $block1;
 
 
 					<!--=========================================
-					Bloque 1
+					Block 1
 					===========================================-->
 
 					<div class="col">
@@ -101,7 +170,7 @@ $block2 = count($module->columns) - $block1;
 					<?php if ($block2 > 0): ?>
 
 						<!--=========================================
-						Bloque 2
+						Block 2
 						===========================================-->
 
 						<div class="col">
@@ -121,7 +190,7 @@ $block2 = count($module->columns) - $block1;
 			</div>
 
 			<!--=========================================
-			Pie de Página
+			Footer
 			===========================================-->
 
 			<div class="card-footer bg-white rounded-bottom py-3">
@@ -145,3 +214,4 @@ $block2 = count($module->columns) - $block1;
 	</form>
 
 </div>
+<?php endif ?>

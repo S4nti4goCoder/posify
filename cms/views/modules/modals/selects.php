@@ -5,6 +5,9 @@
 
 			<form method="POST" class="needs-validation" novalidate>
 
+		<?php echo CsrfGuard::field() ?>
+
+
 				<!-- Modal Header -->
 				<div class="modal-header">
 					<h4 class="modal-title">Cambiar selección</h4>

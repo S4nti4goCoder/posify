@@ -74,3 +74,15 @@ input.showQuantity::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
+
+/*=============================================
+The checkout form sits between modal-content and the body, so it carries the
+column itself: without this the footer is clipped on short screens
+=============================================*/
+
+#modalCheckout .modal-content > form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+}

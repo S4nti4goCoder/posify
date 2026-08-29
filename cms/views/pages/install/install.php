@@ -5,6 +5,9 @@
 		<div class="card border-0 rounded shadow p-5">
 			
 			<form method="POST" class="needs-validation" novalidate>
+
+		<?php echo CsrfGuard::field() ?>
+
 				
 				<h3 class="pt-3 text-center">Instalación Dashboard</h3>
 
@@ -39,6 +42,8 @@
 					required
 					>
 
+					<?php $passwordRulesFor = "password_admin"; include __DIR__ . "/../../modules/password.rules.php" ?>
+
 					<div class="valid-feedback">Válido.</div>
     				<div class="invalid-feedback">Campo inválido.</div>
 
@@ -61,34 +66,7 @@
 
 				</div>
 
-				<div class="form-group mb-3">
-					
-					<label for="symbol_admin">Símbolo del Dashboard <sup>*</sup></label>
-
-					<input 
-					type="text"
-					class="form-control rounded"
-					id="symbol_admin"
-					name="symbol_admin"
-					required
-					>
-
-					<div class="valid-feedback">Válido.</div>
-    				<div class="invalid-feedback">Campo inválido.</div>
-
-				</div>
-
-				<div class="form-group mb-3">
-					
-					<label for="font_admin">Tipografía del Dashboard</label>
-
-					<textarea 
-					class="form-control rounded"
-					id="font_admin"
-					name="font_admin"
-					></textarea>
-
-				</div>
+				<?php include __DIR__ . "/../../modules/theme.fields.php" ?>
 
 				<div class="form-group mb-3">
 					

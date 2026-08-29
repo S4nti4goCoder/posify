@@ -1,17 +1,22 @@
-<?php 
+<?php
+
+require_once __DIR__ . "/../../config/config.php";
+require_once __DIR__ . "/../../lib/password.policy.php";
+require_once __DIR__ . "/../../lib/view.php";
 
 class InstallController{
 
 	/*=============================================
-	Información de la base de datos
+	Database credentials from config/config.local.php
 	=============================================*/
 
 	static public function infoDatabase(){
 
 		$infoDB = array(
-			"database" => "pos_system_db",
-			"user" => "root",
-			"pass" => ""
+			"host" => Config::get("db_host"),
+			"database" => Config::get("db_name"),
+			"user" => Config::requireSecret("db_user"),
+			"pass" => Config::requireSecret("db_password")
 		);
 
 		return $infoDB;
@@ -19,14 +24,14 @@ class InstallController{
 	}
 
 	/*=============================================
-	Conexión a la base de datos
+	Database connection
 	=============================================*/
 
 	static public function connect(){
 
 		try{
 
-			$link = new PDO("mysql:host=localhost;dbname=".InstallController::infoDatabase()["database"],
+			$link = new PDO("mysql:host=".InstallController::infoDatabase()["host"].";dbname=".InstallController::infoDatabase()["database"],
 		                    InstallController::infoDatabase()["user"],
 		                    InstallController::infoDatabase()["pass"]
 		                );
@@ -43,7 +48,7 @@ class InstallController{
 	}
 
 	/*=============================================
-	Instalación del sistema
+	System install
 	=============================================*/
 
 	public function install(){
@@ -54,9 +59,21 @@ class InstallController{
 					fncMatPreloader("on");
 					fncSweetAlert("loading", "Instalando...", "");
 				</script>';
-			
+
+			$failed = PasswordPolicy::check(trim((string) $_POST["password_admin"]));
+
+			if($failed !== []){
+
+				echo '<script>
+						fncMatPreloader("off");
+						fncSweetAlert("error", ' . View::js(PasswordPolicy::message($failed)) . ', "");
+					</script>';
+
+				return;
+			}
+
 			/*=============================================
-			Creamos la tabla admins
+			Create the admins table
 			=============================================*/
 			
 			$sqlAdmins = "CREATE TABLE admins ( 
@@ -82,7 +99,7 @@ class InstallController{
 			$stmtAdmins = InstallController::connect()->prepare($sqlAdmins);
 
 			/*=============================================
-			Creamos la tabla pages
+			Create the pages table
 			=============================================*/
 			
 			$sqlPages = "CREATE TABLE pages ( 
@@ -99,7 +116,7 @@ class InstallController{
 			$stmtPages = InstallController::connect()->prepare($sqlPages);
 
 			/*=============================================
-			Creamos la tabla modules
+			Create the modules table
 			=============================================*/
 			
 			$sqlModules = "CREATE TABLE modules ( 
@@ -118,7 +135,7 @@ class InstallController{
 			$stmtModules = InstallController::connect()->prepare($sqlModules);
 
 			/*=============================================
-			Creamos la tabla columns
+			Create the columns table
 			=============================================*/
 			
 			$sqlColumns = "CREATE TABLE columns ( 
@@ -136,7 +153,7 @@ class InstallController{
 			$stmtColumns = InstallController::connect()->prepare($sqlColumns);
 
 			/*=============================================
-			Creamos la tabla folders
+			Create the folders table
 			=============================================*/
 
 			$sqlFolders = "CREATE TABLE folders ( 
@@ -154,7 +171,7 @@ class InstallController{
 			$stmtFolders = InstallController::connect()->prepare($sqlFolders);
 
 			/*=============================================
-			Creamos la tabla files
+			Create the files table
 			=============================================*/
 
 			$sqlFiles = "CREATE TABLE files ( 
@@ -182,7 +199,7 @@ class InstallController{
 			){
 
 				/*=============================================
-				Creamos el super administrador
+				Create the super administrator
 				=============================================*/
 
 				$url = "admins?register=true&suffix=admin";
@@ -203,7 +220,7 @@ class InstallController{
 				$register = CurlController::request($url,$method,$fields);
 
 				/*=============================================
-				Creamos la página de inicio
+				Create the home page
 				=============================================*/
 
 				$url = "pages?token=no&except=id_page";
@@ -220,7 +237,7 @@ class InstallController{
 				$homePage = CurlController::request($url,$method,$fields);
 
 				/*=============================================
-				Creamos la página de administradores
+				Create the admins page
 				=============================================*/
 
 				$url = "pages?token=no&except=id_page";
@@ -237,7 +254,7 @@ class InstallController{
 				$adminPage = CurlController::request($url,$method,$fields);
 
 				/*=============================================
-				Creamos la página de archivos
+				Create the files page
 				=============================================*/
 
 				$url = "pages?token=no&except=id_page";
@@ -254,7 +271,7 @@ class InstallController{
 				$filesPage = CurlController::request($url,$method,$fields);
 
 				/*=============================================
-				Creamos el módulo Breadcrumb para la página de administradores
+				Create the breadcrumb module for the admins page
 				=============================================*/
 
 				$url = "modules?token=no&except=id_module";
@@ -269,7 +286,7 @@ class InstallController{
 				$breadcrumbModule = CurlController::request($url,$method,$fields);
 
 				/*=============================================
-				Creamos el módulo Tabla para la página de administradores
+				Create the table module for the admins page
 				=============================================*/
 
 				$url = "modules?token=no&except=id_module";
@@ -286,7 +303,7 @@ class InstallController{
 				$tableModule = CurlController::request($url,$method,$fields);
 
 				/*=============================================
-				Creamos el folder de servidor
+				Create the server folder
 				=============================================*/
 
 				$url = "folders?token=no&except=id_folder";
@@ -311,7 +328,7 @@ class InstallController{
 				){
 
 					/*=============================================
-					Creamos cada una de las columnas de la tabla de administradores
+					Create every column of the admins table
 					=============================================*/
 
 					$columns = array(
@@ -320,7 +337,7 @@ class InstallController{
 							"title_column" =>  "rol_admin",
 							"alias_column" => "rol",
 							"type_column" =>  "select",
-							"matrix_column"  => "superadmin,admin,editor",
+							"matrix_column"  => "superadmin,admin,vendedor",
 							"visible_column" => 1,
 							"date_created_column" => date("Y-m-d")
 						],
@@ -479,7 +496,7 @@ class InstallController{
 	}
 
 	/*=============================================
-	Validar existencia de una tabla en la bd
+	Check that a table exists
 	=============================================*/
 
 	static public function getTable($table){
@@ -488,7 +505,7 @@ class InstallController{
 		$validate = InstallController::connect()->query("SELECT COLUMN_NAME AS item FROM information_schema.columns WHERE table_schema = '$database' AND table_name = '$table'")->fetchAll(PDO::FETCH_OBJ);
 
 		/*=============================================
-		Validamos existencia de la tabla
+		The table must exist
 		=============================================*/
 
 		if(!empty($validate)){
@@ -503,7 +520,7 @@ class InstallController{
 	}
 
 	/*=============================================
-	Traernos las tablas de la bd
+	Read the database tables
 	=============================================*/
 
 	static public function getTables(){
@@ -511,7 +528,7 @@ class InstallController{
 		$tables = InstallController::connect()->query("SHOW FULL TABLES")->fetchAll(PDO::FETCH_COLUMN);
 
 		/*=============================================
-		Validamos existencias de las tablas
+		The tables must exist
 		=============================================*/
 
 		if(!empty($tables)){

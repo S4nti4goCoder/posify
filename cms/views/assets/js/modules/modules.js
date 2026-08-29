@@ -1,5 +1,5 @@
 /*=============================================
-Abrir ventana modal de módulos
+Open the modules modal
 =============================================*/
 
 $(document).on("click",".myModule",function(){
@@ -10,13 +10,13 @@ $(document).on("click",".myModule",function(){
 	$("#myModule").modal("show");
 
 	/*=============================================
-	Cuando se abre la ventana modal
+	Modal opened
 	=============================================*/
 
 	$("#myModule").on('shown.bs.modal', function () {
 
 		/*=============================================
-		Capturar el Id de la página
+		Read the page id
 		=============================================*/
 
 		$("#type_module").before(`
@@ -30,7 +30,7 @@ $(document).on("click",".myModule",function(){
 		$("#columnsBlock").hide();
 
 		/*=============================================
-		tipo de módulo seleccionado
+		Selected module type
 		=============================================*/
 
 		$(document).on("change","#type_module",function(){
@@ -42,7 +42,7 @@ $(document).on("click",".myModule",function(){
 			$("#columnsBlock").hide();
 
 			/*=============================================
-			Aparecer campos de métricas
+			Show the metric fields
 			=============================================*/
 
 			if($(this).val() == "metrics"){
@@ -52,7 +52,7 @@ $(document).on("click",".myModule",function(){
 			}
 
 			/*=============================================
-			Aparecer campos de gráficos
+			Show the chart fields
 			=============================================*/
 
 			if($(this).val() == "graphics"){
@@ -62,7 +62,7 @@ $(document).on("click",".myModule",function(){
 			}
 
 			/*=============================================
-			Aparecer campos de tablas
+			Show the table fields
 			=============================================*/
 
 			if($(this).val() == "tables"){
@@ -76,7 +76,7 @@ $(document).on("click",".myModule",function(){
 		})
 		
 		/*=============================================
-		Estamos editando módulo
+		Editing a module
 		=============================================*/
 
 		if(item != undefined){
@@ -86,7 +86,7 @@ $(document).on("click",".myModule",function(){
 			`)
 
 			/*=============================================
-			tipo breadcrumbs
+			breadcrumbs type
 			=============================================*/
 
 			if(JSON.parse(item).type_module == "breadcrumbs"){
@@ -99,7 +99,7 @@ $(document).on("click",".myModule",function(){
 			}
 
 			/*=============================================
-			tipo metrics
+			metrics type
 			=============================================*/
 
 			if(JSON.parse(item).type_module == "metrics"){
@@ -124,7 +124,7 @@ $(document).on("click",".myModule",function(){
 			}
 
 			/*=============================================
-			tipo gráfico
+			Chart type
 			=============================================*/
 
 			if(JSON.parse(item).type_module == "graphics"){
@@ -149,7 +149,7 @@ $(document).on("click",".myModule",function(){
 			}
 
 			/*=============================================
-			tipo tables
+			tables type
 			=============================================*/
 
 			if(JSON.parse(item).type_module == "tables"){
@@ -175,13 +175,13 @@ $(document).on("click",".myModule",function(){
 				$(".listColumns").html('');
 
 				/*=============================================
-				Visualizar las columnas a editar
+				Show the columns to edit
 				=============================================*/
 
 				JSON.parse(item).columns.forEach((e,i)=>{
 
 					/*=============================================
-					Marcar tipo de columna seleccionado
+					Mark the selected column type
 					=============================================*/
 
 					var typeColumn = ["text","textarea","int","double","image","video","file","boolean","select","array","object","json","date","time","datetime","timestamp","code","link","color","money","password","email","relations","order","chatgpt"];
@@ -200,7 +200,7 @@ $(document).on("click",".myModule",function(){
 					})
 
 					/*=============================================
-					Marcar el display y mt
+					Set display and mt
 					=============================================*/
 
 					var display = "d-none";
@@ -213,7 +213,7 @@ $(document).on("click",".myModule",function(){
 					}
 
 					/*=============================================
-					Marcar la selección de visibilidad
+					Set the visibility selection
 					=============================================*/
 
 					var selectOn = "";
@@ -350,7 +350,7 @@ $(document).on("click",".myModule",function(){
 			}
 
 			/*=============================================
-			tipo personalizable
+			custom type
 			=============================================*/
 
 			if(JSON.parse(item).type_module == "custom"){
@@ -363,7 +363,7 @@ $(document).on("click",".myModule",function(){
 
 
 		/*=============================================
-		Estamos creando módulo
+		Creating a module
 		=============================================*/
 		
 		}else{
@@ -375,7 +375,7 @@ $(document).on("click",".myModule",function(){
 	})
 
 	/*=============================================
-	Cuando se cierra la ventana modal
+	Modal closed
 	=============================================*/
 
 	$("#myModule").on('hidden.bs.modal', function (){
@@ -388,7 +388,7 @@ $(document).on("click",".myModule",function(){
 })
 
 /*=============================================
-Eliminar un módulo
+Delete a module
 =============================================*/
 
 $(document).on("click",".deleteModule",function(){
@@ -407,7 +407,6 @@ $(document).on("click",".deleteModule",function(){
 			
 			var data = new FormData();
 			data.append("idModuleDelete",idModule);
-			data.append("token", localStorage.getItem("tokenAdmin"));
 
 			$.ajax({
 
@@ -421,7 +420,8 @@ $(document).on("click",".deleteModule",function(){
 					
 					if(response == 200){
 
-						fncSweetAlert("success","El módulo ha sido eliminado con éxito",setTimeout(()=>location.reload(),1250));
+						fncSweetAlert("success","El módulo ha sido eliminado con éxito", "");
+						setTimeout(()=>location.reload(),1250)
 					
 					}else{
 
@@ -437,7 +437,7 @@ $(document).on("click",".deleteModule",function(){
 })
 
 /*=============================================
-Cambio en datos de métricas
+Metric data changed
 =============================================*/
 
 $(document).on("change",".changeMetric",function(){
@@ -449,7 +449,7 @@ $(document).on("change",".changeMetric",function(){
 })
 
 /*=============================================
-Cambio en datos de gráficos
+Chart data changed
 =============================================*/
 
 $(document).on("change",".changeGraphic",function(){
@@ -461,7 +461,7 @@ $(document).on("change",".changeGraphic",function(){
 })
 
 /*=============================================
-Agregar columnas
+Add columns
 =============================================*/
 
 $(document).on("click",".addColumn",function(){
@@ -595,7 +595,7 @@ $(document).on("click",".addColumn",function(){
 })
 
 /*=============================================
-Eliminar columnas
+Delete columns
 =============================================*/
 
 $(document).on("click",".deleteColumn",function(){
@@ -609,7 +609,7 @@ $(document).on("click",".deleteColumn",function(){
 			$(elem).parent().parent().remove();
 
 			/*=============================================
-			 ID de columnas a borrar
+			 Ids of the columns to delete
 			=============================================*/
 			
 			if($(elem).attr("idItem") > 0){
@@ -622,7 +622,7 @@ $(document).on("click",".deleteColumn",function(){
 			}
 
 			/*=============================================
-			Actualizar el Índice de columnas
+			Update the column order
 			=============================================*/
 
 			var indexColumns = JSON.parse($("#indexColumns").val());

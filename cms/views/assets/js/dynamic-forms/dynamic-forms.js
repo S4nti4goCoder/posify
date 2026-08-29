@@ -1,5 +1,5 @@
 /*=============================================
-Actualizar la matriz del select
+Update the select matrix
 =============================================*/
 
 $(document).on("change",".changeSelectType",function(){
@@ -13,7 +13,6 @@ $(document).on("change",".changeSelectType",function(){
 	data.append("matrix_column",matrix_column);
 	data.append("id_column",id_column);
 	data.append("pre_value",pre_value);
-	data.append("token", localStorage.getItem("tokenAdmin"));
 
 	$.ajax({
 		url:"/ajax/dynamic-forms.ajax.php",
@@ -33,7 +32,7 @@ $(document).on("change",".changeSelectType",function(){
 })
 
 /*=============================================
-Adicionar un nuevo objeto
+Add a new object
 =============================================*/
 
 $(document).on("click",".addObject",function(){
@@ -46,7 +45,7 @@ $(document).on("click",".addObject",function(){
 
 
 /*=============================================
-Quitar un objeto
+Remove an object
 =============================================*/
 
 function removeObject(column, position, event){
@@ -65,7 +64,7 @@ function removeObject(column, position, event){
 }
 
 /*=============================================
-Función cuando cambia el objeto
+Runs when the object changes
 =============================================*/
 
 function changeItemObject(column){
@@ -88,7 +87,7 @@ function changeItemObject(column){
 }
 
 /*=============================================
-Adicionar un nuevo item para el json
+Add a new item to the json
 =============================================*/
 
 $(document).on("click",".addJson",function(){
@@ -100,7 +99,7 @@ $(document).on("click",".addJson",function(){
 })
 
 /*=============================================
-Quitar un objeto
+Remove an object
 =============================================*/
 
 function removeJson(column, position,event){
@@ -120,7 +119,7 @@ function removeJson(column, position,event){
 }
 
 /*=============================================
-Adicionar un grupo de objetos
+Add a group of objects
 =============================================*/
 
 $(document).on("click",".addJsonGroup",function(){
@@ -132,7 +131,7 @@ $(document).on("click",".addJsonGroup",function(){
 })
 
 /*=============================================
-Remover un grupo de objetos
+Remove a group of objects
 =============================================*/
 function removeJsonGroup(column, position, event){
 
@@ -151,7 +150,7 @@ function removeJsonGroup(column, position, event){
 }
 
 /*=============================================
-Función cuando cambia el Json
+Runs when the json changes
 =============================================*/
 
 function changeItemJson(column){
@@ -185,7 +184,7 @@ function changeItemJson(column){
 }
 
 /*=============================================
-Abrir ventana modal de archivos
+Open the files modal
 =============================================*/
 
 $(document).on("click",".myFiles",function(){
@@ -212,7 +211,7 @@ $(document).on("click",".myFiles",function(){
 })
 
 /*=============================================
-Cambiar la tabla de relaciones
+Change the relations table
 =============================================*/
 
 $(document).on("change",".changeRelations",function(){
@@ -227,7 +226,6 @@ $(document).on("change",".changeRelations",function(){
 	var data = new FormData();
 	data.append("table",table);
 	data.append("id_column",id_column);
-	data.append("token", localStorage.getItem("tokenAdmin"));
 
 	$.ajax({
 		url:"/ajax/dynamic-forms.ajax.php",
@@ -259,7 +257,7 @@ $(document).on("change",".changeRelations",function(){
 })
 
 /*=============================================
-Actualizar la matriz de ChatGPT
+Update the ChatGPT matrix
 =============================================*/
 
 $(document).on("change",".changeChatGPT",function(){
@@ -274,7 +272,6 @@ $(document).on("change",".changeChatGPT",function(){
 	var data = new FormData();
 	data.append("matrix_prompt",matrix_prompt);
 	data.append("id_prompt",id_prompt);
-	data.append("token", localStorage.getItem("tokenAdmin"));
 
 	$.ajax({
 		url:"/ajax/dynamic-forms.ajax.php",

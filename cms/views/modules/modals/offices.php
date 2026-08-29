@@ -1,4 +1,7 @@
 <?php
+
+require_once __DIR__ . "/../../../../lib/view.php";
+
 $urlOffices = "offices?select=id_office,title_office";
 $method = "GET";
 $fields = array();
@@ -27,13 +30,19 @@ if ($offices->status == 200) {
                             class="form-select rounded"
                             name="offices"
                             id="offices">
-                            <option value="">Elige Sucursal</option>
+                            <?php $currentOffice = (int) $_SESSION["admin"]->id_office_admin ?>
+
+                            <option value="" disabled>Elige Sucursal</option>
+
                             <?php if (!empty($offices)): ?>
                                 <?php foreach ($offices as $key => $value): ?>
-                                    <option value="<?php echo $value->id_office ?>_<?php echo urldecode($value->title_office) ?>"><?php echo urldecode($value->title_office) ?></option>
+                                    <option
+                                        value="<?php echo $value->id_office ?>_<?php echo View::text($value->title_office) ?>"
+                                        <?php if ((int) $value->id_office === $currentOffice): ?> selected <?php endif ?>><?php echo View::text($value->title_office) ?></option>
                                 <?php endforeach ?>
                             <?php endif ?>
-                            <?php if ($_SESSION["admin"]->id_office_admin > 0): ?>
+
+                            <?php if ($currentOffice > 0): ?>
                                 <option value="0_Multi-Sucursal">Multi-Sucursal</option>
                             <?php endif ?>
                         </select>

@@ -1,5 +1,5 @@
 /*=============================================
-Cambiar de Listado a Cuadrícula
+Switch between list and grid
 =============================================*/
 
 $(document).on("click",".changeView",function(){
@@ -33,7 +33,7 @@ $(document).on("click",".changeView",function(){
 	$(this).removeClass("bg-white")
 
 	/*=============================================
-	Ajustar imágenes cuando activamos el grid
+	Resize images when the grid is enabled
 	=============================================*/
 
 	if($(this).attr("module") == "grid"){
@@ -48,7 +48,7 @@ $(document).on("click",".changeView",function(){
 })
 
 /*=============================================
-Zona Drag & Drop
+Drag and drop zone
 =============================================*/
 
 $("#dragFiles").on(
@@ -107,7 +107,7 @@ $("#dragFiles").on(
 )
 
 /*=============================================
-Subir Archivos
+Upload files
 =============================================*/
 var files = new DataTransfer();
 
@@ -117,13 +117,13 @@ function uploadFiles(event, type, time){
 	fncSweetAlert("loading", "Loading...", "");
 
 	/*=============================================
-	Guardar en el LocalStorage estado inicial del checkbox
+	Store the initial checkbox state in localStorage
 	=============================================*/
 
 	localStorage.setItem("listFolders", $(".listFolders").html());
 
 	/*=============================================
-	Convertir los checkbox a radio
+	Turn the checkboxes into radios
 	=============================================*/
 
 	var checkFMS = $(".check-fms");
@@ -138,7 +138,7 @@ function uploadFiles(event, type, time){
 	$(checkFMS[0]).attr("checked",true);
 
 	/*=============================================
-	Captura de Archivos
+	File capture
 	=============================================*/
 	
 	if(type == "btn"){
@@ -159,7 +159,7 @@ function uploadFiles(event, type, time){
 	}
 
 	/*=============================================
-	Limpiando las vistas de lista y cuadrícula
+	Clearing the list and grid views
 	=============================================*/
 
 	var itemsUp = $(".itemsUp");
@@ -170,7 +170,7 @@ function uploadFiles(event, type, time){
 	})
 
 	/*=============================================
-	Recorriendo los archivos
+	Looping over the files
 	=============================================*/
 
 	Array.from(files.files).forEach((file,i)=>{
@@ -183,7 +183,7 @@ function uploadFiles(event, type, time){
 		){
 		
 			/*=============================================
-			Capturar el nombre
+			Read the name
 			=============================================*/
 
 			var name = file.name.split(".");
@@ -191,20 +191,20 @@ function uploadFiles(event, type, time){
 			name = name.toString().replace(/,/g,"_");
 
 			/*=============================================
-			Capturar la extensión
+			Read the extension
 			=============================================*/
 
 			var extension = file.name.split(".").pop();
 
 			/*=============================================
-			Capturar el tamaño
+			Read the size
 			=============================================*/
 
 			var size = (Number(file.size)/1000000).toFixed(2);
 			
 
 			/*=============================================
-			Capturar la miniatura en imágenes
+			Image thumbnail
 			=============================================*/
 
 			var path;
@@ -225,13 +225,13 @@ function uploadFiles(event, type, time){
 			}
 
 			/*=============================================
-			Capturar la miniatura de videos
+			Video thumbnail
 			=============================================*/
 
 			if(file.type.split("/")[0] == "video"){
 
 				/*=============================================
-				Capturar la miniatura de videos MP4
+				MP4 thumbnail
 				=============================================*/
 
 				if(file.type.split("/")[1] == "mp4"){
@@ -269,7 +269,7 @@ function uploadFiles(event, type, time){
 			}
 
 			/*=============================================
-			Capturar la miniatura de audios
+			Audio thumbnail
 			=============================================*/
 
 			if(file.type.split("/")[0] == "audio"){
@@ -280,7 +280,7 @@ function uploadFiles(event, type, time){
 			}
 
 			/*=============================================
-			Capturar la miniatura de PDF
+			PDF thumbnail
 			=============================================*/
 
 			if(file.type.split("/")[1] == "pdf"){
@@ -292,7 +292,7 @@ function uploadFiles(event, type, time){
 			}
 
 			/*=============================================
-			Capturar la miniatura de ZIP
+			ZIP thumbnail
 			=============================================*/
 
 			if(file.type.split("/")[1] == "zip"){	
@@ -303,13 +303,13 @@ function uploadFiles(event, type, time){
 			}
 
 			/*=============================================
-			Función para pintar los archivos en la lista o cuadrícula
+			Render the files in the list or the grid
 			=============================================*/
 
 			function paintFiles(path,name,extension,size,time){
 
 				/*=============================================
-				Visualizando archivos a subir en la lista
+				Previewing the queued files in the list
 				=============================================*/
 			
 				$("#list table tbody tr:first-child").before(`
@@ -353,7 +353,7 @@ function uploadFiles(event, type, time){
 				`)
 
 				/*=============================================
-				Visualizando archivos a subir en la cuadrícula
+				Previewing the queued files in the grid
 				=============================================*/
 
 				$("#grid .col:first-child").before(`
@@ -425,7 +425,7 @@ function uploadFiles(event, type, time){
 				fncSweetAlert("close", "", "");
 
 				/*=============================================
-				Ejecutar función ajuste de imagen
+				Run the image sizing function
 				=============================================*/
 
 				imgAdjustGrid();
@@ -444,7 +444,7 @@ function uploadFiles(event, type, time){
 }
 
 /*=============================================
-Ajuste de imagen para el grid
+Image sizing for the grid
 =============================================*/
 
 function imgAdjustGrid(){
@@ -463,13 +463,13 @@ function imgAdjustGrid(){
 }
 
 /*=============================================
-Cambio al seleccionar servidor
+Server selection changed
 =============================================*/
 
 $(document).on("change",".check-fms",function(){
 
 	/*=============================================
-	Seleccionar servidor
+	Pick the server
 	=============================================*/
 
 	if($(this).attr("type") == "radio"){
@@ -491,23 +491,17 @@ $(document).on("change",".check-fms",function(){
 })
 
 /*=============================================
-Iniciar subida de archivos
+Start the upload
 =============================================*/
 
 $(document).on("click","#startAll",function(){
 
 	/*=============================================
-	Validar si lo está haciendo un admin
+	Check whether an admin is doing this
 	=============================================*/
 
-	if(localStorage.getItem("tokenAdmin") == null){
-
-		fncToastr("error", "Debe iniciar sesión para realizar esta acción");
-		return;
-	}
-
 	/*=============================================
-	Validar que si hayan archivos para subir
+	There must be files to upload
 	=============================================*/
 	
 	if($(".itemsUp").length == 0){
@@ -518,7 +512,7 @@ $(document).on("click","#startAll",function(){
 	}
 	
 	/*=============================================
-	Validar el folder donde se subiran los archivos
+	Check the target folder
 	=============================================*/
 
 	var checkFMS = $(".check-fms");
@@ -536,7 +530,7 @@ $(document).on("click","#startAll",function(){
 })
 
 /*=============================================
-Función de carga
+Load function
 =============================================*/
 
 function uploadFilesAjax(folder){
@@ -546,7 +540,7 @@ function uploadFilesAjax(folder){
 	var countFiles = 0;
 
 	/*=============================================
-	Recorriendo los archivos
+	Looping over the files
 	=============================================*/
 
 	Array.from(files.files).forEach((file,i)=>{
@@ -554,7 +548,6 @@ function uploadFilesAjax(folder){
 		var data = new FormData();
 		data.append("file", file);
 		data.append("folder", folder.split("_")[0]);
-		data.append("token", localStorage.getItem("tokenAdmin"));
 
 		$.ajax({
 
@@ -569,7 +562,7 @@ function uploadFilesAjax(folder){
 						var completePercent = (e.loaded / e.total) * 100;
 
 						/*=============================================
-						Precarga individual en la lista
+						Per item preload in the list
 						=============================================*/			
 
 						$(".progressList"+i).find(".progress-spinner").html(`<div class="spinner-border spinner-border-sm me-1"></div><small>Uploading file to server...</small>`)
@@ -579,7 +572,7 @@ function uploadFilesAjax(folder){
 						$(".progressList"+i).find(".progress-bar").html(completePercent.toFixed(2)+"%");
 
 						/*=============================================
-						Precarga individual en la cuadrícula
+						Per item preload in the grid
 						=============================================*/			
 
 						$(".progressGrid"+i).find(".progress-spinner").html(`<div class="spinner-border spinner-border-sm"></div>`)
@@ -607,7 +600,7 @@ function uploadFilesAjax(folder){
 					countFiles++;
 
 					/*=============================================
-					Modifica la vista de la lista
+					Change the list view
 					=============================================*/
 					$(".columnName"+i).parent().removeClass("itemsUp");
 					$(".columnName"+i).find("input").attr("readonly", false);
@@ -632,7 +625,7 @@ function uploadFilesAjax(folder){
 					$(".columnAction"+i).removeClass("columnAction"+i);
 
 					/*=============================================
-					Modifica la vista de la cuadrícula
+					Change the grid view
 					=============================================*/
 					$(".gridName"+i).parent().parent().parent().parent().removeClass("itemsUp");
 					$(".gridName"+i).find("input").attr("readonly", false);
@@ -655,18 +648,17 @@ function uploadFilesAjax(folder){
 					$(".gridAction"+i).removeClass("gridAction"+i);
 
 					/*=============================================
-					Finaliza la carga de todos los archivos
+					Every file finished uploading
 					=============================================*/
 
 					if(countFiles == files.files.length){
 
 						/*=============================================
-						sumar el peso de todos los archivos que pertenecen al "folder"
+						add up the size of every file in the folder
 						=============================================*/
 
 						var data = new FormData();
 						data.append("idFolder", folder.split("_")[0]);
-						data.append("token", localStorage.getItem("tokenAdmin"));
 
 						$.ajax({
 
@@ -681,7 +673,7 @@ function uploadFilesAjax(folder){
 								if(response == 200){
 
 									/*=============================================
-									Regresar al estado inicial los checkbox de los folders
+									Reset the folder checkboxes
 									=============================================*/
 	
 									$(".listFolders").html(localStorage.getItem("listFolders"));
@@ -705,7 +697,7 @@ function uploadFilesAjax(folder){
 					fncToastr("error", JSON.parse(response).error);
 
 					/*=============================================
-					Precarga individual en la lista
+					Per item preload in the list
 					=============================================*/			
 
 					$(".progressList"+i).find(".progress-spinner").html('')
@@ -715,7 +707,7 @@ function uploadFilesAjax(folder){
 					$(".progressList"+i).find(".progress-bar").html("0%");
 
 					/*=============================================
-					Precarga individual en la cuadrícula
+					Per item preload in the grid
 					=============================================*/			
 
 					$(".progressGrid"+i).find(".progress-spinner").html('')
@@ -736,23 +728,17 @@ function uploadFilesAjax(folder){
 }
 
 /*=============================================
-Eliminar Archivo
+Delete a file
 =============================================*/ 
 
 $(document).on("click",".deleteFile",function(){
 
 	/*=============================================
-	Confirmar si esta como administrador
+	Confirm the admin is signed in
 	=============================================*/
 
-	if(localStorage.getItem("tokenAdmin") == null){
-
-		fncToastr("error", "Debe iniciar sesión para realizar esta acción");
-		return;
-	}
-
 	/*=============================================
-	Confirmar si deseo eliminar el archivo
+	Confirm the file deletion
 	=============================================*/
 
 	fncSweetAlert("confirm", "¿Está seguro de eliminar este archivo?", "").then(resp=>{
@@ -767,7 +753,7 @@ $(document).on("click",".deleteFile",function(){
 			var mode = $(this).attr("mode");
 
 			/*=============================================
-			Quitar archivo de la vista
+			Remove the file from the view
 			=============================================*/
 
 			if(mode == "list"){
@@ -786,13 +772,12 @@ $(document).on("click",".deleteFile",function(){
 			}
 
 			/*=============================================
-			Eliminar archivo del servidor y la base de datos
+			Delete the file from the server and the database
 			=============================================*/
 
 			var data = new FormData();
 			data.append("idFileDelete", idFile);
 			data.append("idFolderDelete", idFolder);
-			data.append("token", localStorage.getItem("tokenAdmin"));
 
 			$.ajax({
 
@@ -821,7 +806,7 @@ $(document).on("click",".deleteFile",function(){
 })
 
 /*=============================================
-Quitar archivos antes subir al servidor
+Remove files before uploading
 =============================================*/ 
 
 $(document).on("click",".clearFile",function(){
@@ -831,7 +816,7 @@ $(document).on("click",".clearFile",function(){
 	var name = $(this).attr("name");
 
 	/*=============================================
-	Quitar archivo de la vista
+	Remove the file from the view
 	=============================================*/
 
 	if(mode == "list"){
@@ -849,7 +834,7 @@ $(document).on("click",".clearFile",function(){
 	}	
 
 	/*=============================================
-	Recorriendo los archivos
+	Looping over the files
 	=============================================*/
 
 	Array.from(files.files).forEach((file,i)=>{
@@ -866,14 +851,14 @@ $(document).on("click",".clearFile",function(){
 })
 
 /*=============================================
-Remover índice de un array de Archivos (FileList)
+Remove an index from a FileList
 =============================================*/
 
 function removeFileFromList(fileList, indexToRemove) {
    
     const dt = new DataTransfer(); // Crea un nuevo objeto DataTransfer
 
-    // Agrega todos los archivos excepto el que quieres eliminar
+    // Adds every file except the one being removed
     
     for (let i = 0; i < fileList.length; i++) {
 
@@ -883,12 +868,12 @@ function removeFileFromList(fileList, indexToRemove) {
     
     }
 
-    // Devuelve el nuevo FileList
+    // Returns the new FileList
     return dt;
 }
 
 /*=============================================
-Copiar link en el portapapeles
+Copy the link to the clipboard
 =============================================*/ 
 
 $(document).on("click",".copyLink",function(){
@@ -921,32 +906,25 @@ $(document).on("click",".copyLink",function(){
 
 
 /*=============================================
-Cambiar el nombre del archivo
+Rename the file
 =============================================*/ 
 
 $(document).on("change",".changeName", function(){
 
 	/*=============================================
-	Confirmar si esta como administrador
+	Confirm the admin is signed in
 	=============================================*/
-
-	if(localStorage.getItem("tokenAdmin") == null){
-
-		fncToastr("error", "Debe iniciar sesión para realizar esta acción");
-		return;
-	}
 
 	var name = $(this).val();
 	var idFile = $(this).attr("idFile");
 
 	/*=============================================
-	Cambiar el nombre en base de datos
+	Save the new name
 	=============================================*/
 
 	var data = new FormData();
 	data.append("name", name);
 	data.append("idFile", idFile);
-	data.append("token", localStorage.getItem("tokenAdmin"));
 
 	$.ajax({
 
@@ -970,7 +948,7 @@ $(document).on("change",".changeName", function(){
 })
 
 /*=============================================
-Buscador de archivos
+File search
 =============================================*/ 
 
 $("#searchFiles").keyup(function(event){
@@ -987,7 +965,7 @@ $("#searchFiles").keyup(function(event){
 })
 
 /*=============================================
-función de búsqueda
+Search function
 =============================================*/
 
 function fncSearch(search){
@@ -1008,7 +986,7 @@ function fncSearch(search){
 }
 
 /*=============================================
-Cambio de órden, filtrar formato o filtrar servidor
+Order, format filter or server filter changed
 =============================================*/
 
 $(document).on("change",".changeFilters",function(){
@@ -1023,7 +1001,7 @@ $(document).on("change",".changeFilters",function(){
 })
 
 /*=============================================
-Cambio de órden, filtrar formato o filtrar servidor
+Order, format filter or server filter changed
 =============================================*/
 
 $(document).on("change",".changeFolders",function(){
@@ -1042,7 +1020,7 @@ $(document).on("change",".changeFolders",function(){
 
 
 /*=============================================
-Llevar el Scroll al final de la página
+Scroll to the bottom
 =============================================*/
 
 $(window).on("scroll",function(){
@@ -1089,7 +1067,7 @@ $(window).on("scroll",function(){
 })
 
 /*=============================================
-Cargar más archivos con botón
+Load more files on click
 =============================================*/
 
 $(document).on("click","#btnControl",function(){
@@ -1124,7 +1102,7 @@ $(document).on("click","#btnControl",function(){
 
 
 /*=============================================
-funcion para cambiar la vista del DOM
+Change the DOM view
 =============================================*/
 
 function loadFiles(search,sortBy,filterBy,folders,startAt,endAt){
@@ -1145,7 +1123,7 @@ function loadFiles(search,sortBy,filterBy,folders,startAt,endAt){
 		countArrayFolder++;
 
 		/*=============================================
-		Agregamos los folders seleccionados
+		Add the selected folders
 		=============================================*/ 
 
 		if($(folders[i]).prop("checked")){
@@ -1155,7 +1133,7 @@ function loadFiles(search,sortBy,filterBy,folders,startAt,endAt){
 		}
 
 		/*=============================================
-		Llevar información a AJAX
+		Send the data over Ajax
 		=============================================*/
 			
 		if(countArrayFolder == folders.length){
@@ -1181,7 +1159,7 @@ function loadFiles(search,sortBy,filterBy,folders,startAt,endAt){
 					if(startAt == 0){
 					
 						/*=============================================
-						Limpiar la lista y la cuadrícula
+						Clear the list and the grid
 						=============================================*/
 
 						$("#list table tbody").html('<tr></tr>');
@@ -1190,7 +1168,7 @@ function loadFiles(search,sortBy,filterBy,folders,startAt,endAt){
 					}
 
 					/*=============================================
-					Pintar la lista y la cuadrícula con lo que viene de AJAX
+					Render the list and the grid from the Ajax response
 					=============================================*/
 
 					$("#list table tbody").append(JSON.parse(response).htmlList);

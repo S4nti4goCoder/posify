@@ -1,4 +1,7 @@
-<?php 
+<?php
+
+require_once __DIR__ . "/../../../lib/view.php";
+require_once __DIR__ . "/../../../lib/theme.php";
 
 $url = "pages?orderBy=order_page&orderMode=ASC";
 $method = "GET";
@@ -21,8 +24,8 @@ if($pages->status == 200){
 <div class="bg-white shadow" id="sidebar-wrapper">
 
 	<div class="sidebar-heading bg-white text-dark my-2">
-		<?php echo $admin->symbol_admin ?>
-		<span class="menu-text"><?php echo $admin->title_admin ?></span>
+		<?php echo Theme::icon($admin->symbol_admin) ?>
+		<span class="menu-text"><?php echo View::text($admin->title_admin) ?></span>
 	</div>
 
 	<hr class="mt-0 borderDashboard">
@@ -34,13 +37,13 @@ if($pages->status == 200){
 			<?php foreach ($pages as $key => $value): ?>
 
 
-				<?php if ($_SESSION["admin"]->rol_admin == "superadmin" || $_SESSION["admin"]->rol_admin == "admin" || $_SESSION["admin"]->rol_admin == "editor" && isset(json_decode(urldecode($_SESSION["admin"]->permissions_admin), true)[$value->url_page]) && json_decode(urldecode($_SESSION["admin"]->permissions_admin), true)[$value->url_page] == "on" ): ?>
+				<?php if ($_SESSION["admin"]->rol_admin == "superadmin" || $_SESSION["admin"]->rol_admin == "admin" || $_SESSION["admin"]->rol_admin == "vendedor" && isset(json_decode((string) ($_SESSION["admin"]->permissions_admin ?? "{}"), true)[$value->url_page]) && json_decode((string) ($_SESSION["admin"]->permissions_admin ?? "{}"), true)[$value->url_page] == "on" ): ?>
 
 				<li class="list-group-item list-group-item-action position-relative" idPage="<?php echo base64_encode($value->id_page) ?>">
 
 					<?php if ($value->type_page == "external_link" || $value->type_page == "internal_link"): ?>
 
-						<a class="bg-transparent text-dark" href="<?php echo urldecode($value->url_page) ?>" <?php if ($value->type_page == "external_link"): ?>  target="_blank" <?php endif ?>>
+						<a class="bg-transparent text-dark" href="<?php echo View::text($value->url_page) ?>" <?php if ($value->type_page == "external_link"): ?>  target="_blank" <?php endif ?>>
 
 					<?php else: ?>
 

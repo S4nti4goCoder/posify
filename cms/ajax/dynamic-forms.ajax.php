@@ -1,5 +1,10 @@
 <?php
 
+require_once __DIR__ . "/../../lib/csrf.guard.php";
+require_once __DIR__ . "/../../lib/permission.guard.php";
+
+CsrfGuard::enforce();
+
 require_once "../controllers/curl.controller.php";
 
 class DynamicFormsController{
@@ -60,7 +65,7 @@ class DynamicFormsController{
 	}
 
 	/*=============================================
-	Devolver información de la tabla
+	Return the table data
 	=============================================*/
 
 	public $table;
@@ -83,7 +88,7 @@ class DynamicFormsController{
 
 			if($columns->status == 200){
 
-				echo urldecode(json_encode($columns->results));
+				echo json_encode($columns->results);
 			
 			}
 
@@ -92,7 +97,7 @@ class DynamicFormsController{
 
 
 	/*=============================================
-	Actualizar matrix y Devolver consulta chatgpt
+	Update the matrix and return the ChatGPT reply
 	=============================================*/
 
 	public $matrix_prompt;
@@ -109,7 +114,7 @@ class DynamicFormsController{
 		if($updateMatrix->status == 200 && !empty($this->matrix_prompt)){
 
 			/*=============================================
-			Traer info del administrador
+			Read the administrator data
 			=============================================*/
 
 			$url = "admins?linkTo=token_admin&equalTo=".$this->token."&select=chatgpt_admin";
@@ -136,7 +141,7 @@ class DynamicFormsController{
 }
 
 /*=============================================
-Variables POST
+POST variables
 =============================================*/ 
 
 if(isset($_POST["matrix_column"])){
@@ -145,7 +150,7 @@ if(isset($_POST["matrix_column"])){
 	$ajax -> matrix_column = $_POST["matrix_column"];
 	$ajax -> id_column = $_POST["id_column"];
 	$ajax -> pre_value = $_POST["pre_value"];
-	$ajax -> token = $_POST["token"];
+	$ajax -> token = Session::token();
 	$ajax -> updateMatrixColumn(); 
 
 }
@@ -153,9 +158,11 @@ if(isset($_POST["matrix_column"])){
 if(isset($_POST["table"])){
 
 	$ajax = new DynamicFormsController();
+	PermissionGuard::enforce($_POST["table"]);
+
 	$ajax -> table = $_POST["table"];
 	$ajax -> id_column = $_POST["id_column"];
-	$ajax -> token = $_POST["token"];
+	$ajax -> token = Session::token();
 	$ajax -> getTable(); 
 
 }
@@ -165,7 +172,7 @@ if(isset($_POST["matrix_prompt"])){
 	$ajax = new DynamicFormsController();
 	$ajax -> matrix_prompt = $_POST["matrix_prompt"];
 	$ajax -> id_prompt = $_POST["id_prompt"];
-	$ajax -> token = $_POST["token"];
+	$ajax -> token = Session::token();
 	$ajax -> updateMatrixPrompt(); 
 
 }

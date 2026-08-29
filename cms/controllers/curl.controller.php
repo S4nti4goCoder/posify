@@ -1,17 +1,29 @@
-<?php 
+<?php
+
+require_once __DIR__ . "/../../config/config.php";
+require_once __DIR__ . "/../../lib/local.api.php";
 
 class CurlController{
 
 	/*=============================================
-	Peticiones a la API
-	=============================================*/	
+	API requests
+	=============================================*/
 
 	static public function request($url,$method,$fields){
+
+		/*=============================================
+		Same call, resolved without leaving the machine
+		=============================================*/
+
+		if(Config::get('api_in_process') && LocalApi::isAvailable()){
+
+			return LocalApi::request($url, $method, $fields);
+		}
 
 		$curl = curl_init();
 
 		curl_setopt_array($curl, array(
-			CURLOPT_URL => 'http://api.pos.com/'.$url,
+			CURLOPT_URL => Config::get('api_base_url').$url,
 			CURLOPT_RETURNTRANSFER => true,
 			CURLOPT_ENCODING => '',
 			CURLOPT_MAXREDIRS => 10,
@@ -21,7 +33,7 @@ class CurlController{
 			CURLOPT_CUSTOMREQUEST => $method,
 			CURLOPT_POSTFIELDS => $fields,
 			CURLOPT_HTTPHEADER => array(
-				'Authorization: gdfhdfhsdfyeryr34646fhdfy4564t3456fhgdy'
+				'Authorization: '.Config::requireSecret('api_key')
 			),
 		));
 
@@ -34,7 +46,7 @@ class CurlController{
 	}
 
 	/*=============================================
-	Peticiones a la API de ChatGPT
+	ChatGPT API requests
 	=============================================*/	
 
 	static public function chatGPT($content,$token,$org){

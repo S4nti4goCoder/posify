@@ -1,4 +1,14 @@
-<?php if ($module->columns[$i]->type_column == "timestamp"): ?>
+<?php
+
+/**
+ * Included from blocks/blocks.php, which defines the variables below.
+ *
+ * @var object $module Table module being rendered
+ * @var int    $i      Index of the column inside $module->columns
+ * @var array  $data   The record when editing, empty when creating
+ */
+
+if ($module->columns[$i]->type_column == "timestamp"): ?>
 
 	<?php 
 
@@ -21,7 +31,7 @@
 		id="<?php echo $module->columns[$i]->title_column ?>"  
 		name="<?php echo $module->columns[$i]->title_column ?>"		
 		readonly	
-		value="<?php echo urldecode($timestamp) ?>"
+		value="<?php echo $timestamp ?>"
 		>
 
 		<div class="input-group-text rounded-end">

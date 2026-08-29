@@ -1,11 +1,15 @@
-<?php 
+<?php
+
+require_once __DIR__ . "/../../lib/csrf.guard.php";
+
+CsrfGuard::enforce();
 
 require_once "../controllers/curl.controller.php";
 
 class PagesAjax{
 
 	/*=============================================
-	Cambiar el orden de página
+	Reorder the page
 	=============================================*/ 
 
 	public $idPage;
@@ -29,7 +33,7 @@ class PagesAjax{
 	}
 
 	/*=============================================
-	Eliminar Página
+	Delete a page
 	=============================================*/ 
 
 	public $idPageDelete;
@@ -37,7 +41,7 @@ class PagesAjax{
 	public function deletePage(){
 
 		/*=============================================
-		Validar módulos vinculados a la página
+		Check the modules linked to the page
 		=============================================*/
 
 		$url = "modules?linkTo=id_page_module&equalTo=".base64_decode($this->idPageDelete);
@@ -74,7 +78,7 @@ if(isset($_POST["idPage"])){
 	$ajax = new PagesAjax();
 	$ajax -> idPage = $_POST["idPage"];
 	$ajax -> index = $_POST["index"];
-	$ajax -> token = $_POST["token"];
+	$ajax -> token = Session::token();
 	$ajax -> updatePageOrder();
 }
 
@@ -84,6 +88,6 @@ if(isset($_POST["idPageDelete"])){
 
 	$ajax = new PagesAjax();
 	$ajax -> idPageDelete = $_POST["idPageDelete"];
-	$ajax -> token = $_POST["token"];
+	$ajax -> token = Session::token();
 	$ajax -> deletePage();
 }

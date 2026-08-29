@@ -1,5 +1,17 @@
 <?php
 
+require_once __DIR__ . "/../../lib/view.php";
+require_once __DIR__ . "/../../lib/money.php";
+require_once __DIR__ . "/../../lib/inventory.php";
+require_once __DIR__ . "/../../lib/cash.session.php";
+
+require_once __DIR__ . "/../../lib/csrf.guard.php";
+
+CsrfGuard::enforce();
+
+require_once __DIR__ . "/../../lib/office.guard.php";
+require_once __DIR__ . "/../../lib/permission.guard.php";
+require_once __DIR__ . "/../../lib/walkin.client.php";
 require_once "../controllers/curl.controller.php";
 require_once "../controllers/template.controller.php";
 
@@ -7,7 +19,7 @@ class DynamicTablesController
 {
 
 	/*=============================================
-    Eliminar Items
+    Delete items
     =============================================*/
 
 	public $idItemDelete;
@@ -23,11 +35,31 @@ class DynamicTablesController
 
 		foreach ($idItems as $key => $value) {
 
-			$url = $this->tableDelete . "?id=" . base64_decode($value) . "&nameId=id_" . $this->suffixDelete . "&token=" . $this->token . "&table=admins&suffix=admin";
+			$recordId = base64_decode($value);
+
+			/*=============================================
+			The walk in customer is what the POS falls back to on every
+			sale, so it stays put
+			=============================================*/
+
+			if (WalkInClient::isProtected($this->tableDelete, $recordId)) {
+
+				echo "protected";
+				return;
+			}
+
+			$url = $this->tableDelete . "?id=" . $recordId . "&nameId=id_" . $this->suffixDelete . "&token=" . $this->token . "&table=admins&suffix=admin";
 			$method = "DELETE";
 			$fields = array();
 
 			$deleteItem = CurlController::request($url, $method, $fields);
+
+			// 409: the record still has records pointing at it
+			if ($deleteItem->status == 409) {
+
+				echo "in_use:" . preg_replace("/[^a-z_]/", "", (string) $deleteItem->results);
+				return;
+			}
 
 			if ($deleteItem->status == 200) {
 
@@ -42,7 +74,7 @@ class DynamicTablesController
 	}
 
 	/*=============================================
-    Devolver tabla filtrada
+    Return the filtered table
     =============================================*/
 
 	public $contentModule;
@@ -67,13 +99,13 @@ class DynamicTablesController
 
 
 		/*=============================================
-		Filtro por búsqueda
+		Search filter
 		=============================================*/
 
 		if ($this->search != "") {
 
 			/*=============================================
-			Columnas de búsqueda
+			Searchable columns
 			=============================================*/
 
 			$linkTo = array();
@@ -85,6 +117,7 @@ class DynamicTablesController
 					if (
 						$value->type_column == "text" ||
 						$value->type_column == "textarea" ||
+						$value->type_column == "email" ||
 						$value->type_column == "int" ||
 						$value->type_column == "double" ||
 						$value->type_column == "money" ||
@@ -103,7 +136,7 @@ class DynamicTablesController
 			}
 
 			/*=============================================
-			Itineración de búsqueda
+			Search loop
 			=============================================*/
 			foreach ($linkTo as $key => $value) {
 				if ($this->idOffice == 0 || !in_array("id_office_" . $module->suffix_module, array_column($module->columns, "title_column"))) {
@@ -120,6 +153,21 @@ class DynamicTablesController
 
 				if ($table->status == 200) {
 					$table = $table->results;
+
+					/*=============================================
+					A product has one stock per branch now, so the rows carry the
+					one for the branch being looked at
+					=============================================*/
+
+					if ($module->title_module == "products") {
+
+						$stockMap = Inventory::mapFor((int) OfficeGuard::current());
+
+						foreach ($table as $row) {
+
+							$row->qty_stock = $stockMap[(int) $row->id_product] ?? 0;
+						}
+					}
 					if ($this->idOffice == 0 || !in_array("id_office_" . $module->suffix_module, array_column($module->columns, "title_column"))) {
 						$url = $module->title_module . "?linkTo=" . $value . "&search=" . str_replace(" ", "_", $this->search) . "&select=id_" . $module->suffix_module;
 					} else {
@@ -151,7 +199,22 @@ class DynamicTablesController
 				$table = $table->results;
 
 				/*=============================================
-				Traemos contenido total de la tabla
+				A product has one stock per branch now, so the rows carry the
+				one for the branch being looked at
+				=============================================*/
+
+				if ($module->title_module == "products") {
+
+					$stockMap = Inventory::mapFor((int) OfficeGuard::current());
+
+					foreach ($table as $row) {
+
+						$row->qty_stock = $stockMap[(int) $row->id_product] ?? 0;
+					}
+				}
+
+				/*=============================================
+				Read the full table contents
 				=============================================*/
 				if ($this->idOffice == 0 || !in_array("id_office_" . $module->suffix_module, array_column($module->columns, "title_column"))) {
 					$url = $module->title_module . "?linkTo=date_created_" . $module->suffix_module . "&between1=" . $this->between1 . "&between2=" . $this->between2 . "&select=id_" . $module->suffix_module;
@@ -167,7 +230,7 @@ class DynamicTablesController
 		}
 
 		/*=============================================
-    	Devolver la tabla en formato HTML
+    	Return the table as HTML
     	=============================================*/
 
 		$HTMLTable = "";
@@ -177,16 +240,32 @@ class DynamicTablesController
 
 			foreach (json_decode(json_encode($table), true) as $key => $value) {
 
+				/*=============================================
+				The walk in customer takes no actions at all: the POS
+				depends on it staying exactly as it is
+				=============================================*/
+
+				$isLocked = $module->suffix_module == "cash";
+
+				$isWalkIn = $module->title_module == "clients"
+					&& isset($value["cc_client"])
+					&& (string) $value["cc_client"] === WalkInClient::DOCUMENT;
+
 				$HTMLTable .= '<tr>
 						<td>' . ($key + 1 + $startAt) . '</td>';
 
 				if ($this->rolAdmin == "superadmin" || $module->editable_module == 1) {
 
-					$HTMLTable .= '<td>
-		    					<div class="form-check formCheck">
+					$HTMLTable .= '<td>';
+
+					if (!$isWalkIn && !$isLocked) {
+
+						$HTMLTable .= '<div class="form-check formCheck">
 		    						<input class="form-check-input checkItem" type="checkbox" idItem="' . base64_encode($value["id_" . $module->suffix_module]) . '">
-		    					</div>
-		    				</td>';
+		    					</div>';
+					}
+
+					$HTMLTable .= '</td>';
 				}
 
 				foreach ($module->columns as $index => $item) {
@@ -196,36 +275,36 @@ class DynamicTablesController
 						$HTMLTable .= '<td>';
 
 						/*=============================================
-								Contenido tipo Imagen
+								Image content
 								=============================================*/
 
 						if ($item->type_column == "image") {
 
-							$HTMLTable .= '<a href="' . urldecode($value[$item->title_column]) . '" target="_blank">
-										<img src="' . urldecode($value[$item->title_column]) . '" class="rounded" style="width:60px; height:60px; object-fit: cover; object-position:center;">
+							$HTMLTable .= '<a href="' . View::url($value[$item->title_column]) . '" target="_blank">
+										<img src="' . View::url($value[$item->title_column]) . '" class="rounded" style="width:60px; height:60px; object-fit: cover; object-position:center;">
 									</a>';
 
 							/*=============================================
-								Contenido tipo Video
+								Video content
 								=============================================*/
 						} else if ($item->type_column == "video") {
 
-							$HTMLTable .= '<a href="' . urldecode($value[$item->title_column]) . '" target="_blank">
+							$HTMLTable .= '<a href="' . View::url($value[$item->title_column]) . '" target="_blank">
 										<img src="/views/assets/img/video.png" class="rounded" style="width:60px; height:60px; object-fit: cover; object-position:center;">
 									</a>';
 
 							/*=============================================
-								Contenido tipo otros Archivos
+								Other file content
 								=============================================*/
 						} else if ($item->type_column == "file") {
 
-							$HTMLTable .= '<a href="' . urldecode($value[$item->title_column]) . '" target="_blank">
+							$HTMLTable .= '<a href="' . View::url($value[$item->title_column]) . '" target="_blank">
 										<img src="/views/assets/img/file.png" class="rounded" style="width:60px; height:60px; object-fit: cover; object-position:center;">
 									</a>';
 
 
 							/*=============================================
-								Contenido tipo Boleano
+								Boolean content
 								=============================================*/
 						} else if ($item->type_column == "boolean") {
 
@@ -252,11 +331,11 @@ class DynamicTablesController
 							}
 
 							/*=============================================
-								Contenido tipo Array
+								Array content
 								=============================================*/
 						} else if ($item->type_column == "array") {
 
-							$typeArray = explode(",", urldecode($value[$item->title_column]));
+							$typeArray = explode(",", $value[$item->title_column]);
 
 							foreach ($typeArray as $num => $elem) {
 
@@ -264,11 +343,11 @@ class DynamicTablesController
 							}
 
 							/*=============================================
-								Contenido tipo Objetos
+								Object content
 								=============================================*/
 						} else if ($item->type_column == "object") {
 
-							$typeJSON = json_decode(urldecode($value[$item->title_column]));
+							$typeJSON = json_decode($value[$item->title_column]);
 
 							foreach ($typeJSON as $num => $elem) {
 
@@ -276,28 +355,28 @@ class DynamicTablesController
 							}
 
 							/*=============================================
-								Contenido tipo Enlace
+								Link content
 								=============================================*/
 						} else if ($item->type_column == "link") {
 
-							$HTMLTable .= '<a href="' . $value[$item->title_column] . '" target="_blank" class="badge badge-default border rounded bg-indigo">' . TemplateController::reduceText(urldecode($value[$item->title_column]), 20) . '</a>';
+							$HTMLTable .= '<a href="' . View::url($value[$item->title_column]) . '" target="_blank" class="badge badge-default border rounded bg-indigo">' . View::raw(TemplateController::reduceText($value[$item->title_column], 20)) . '</a>';
 
 							/*=============================================
-								Contenido tipo Color
+								Color content
 								=============================================*/
 						} else if ($item->type_column == "color") {
 
-							$HTMLTable .= '<div class="rounded" style="width:25px; height:25px; background:' . urldecode($value[$item->title_column]) . '"></div>';
+							$HTMLTable .= '<div class="rounded" style="width:25px; height:25px; background:' . View::text($value[$item->title_column]) . '"></div>';
 
 							/*=============================================
-								Contenido tipo Double
+								Double content
 								=============================================*/
 						} else if ($item->type_column == "money") {
 
-							$HTMLTable .= '$' . number_format(urldecode($value[$item->title_column]), 2);
+							$HTMLTable .= '$' . Money::amount($value[$item->title_column]);
 
 							/*=============================================
-								Contenido tipo Relaciones
+								Relations content
 								=============================================*/
 						} else if ($item->type_column == "relations") {
 
@@ -305,7 +384,7 @@ class DynamicTablesController
 
 								$url = "relations?rel=modules,pages&type=module,page&linkTo=type_module,title_module&equalTo=tables," . $item->matrix_column . "&select=url_page,suffix_module";
 								$method = "GET";
-								$array = array();
+								$fields = array();
 
 								$urlPage = CurlController::request($url, $method, $fields)->results[0]->url_page;
 								$suffixModule = CurlController::request($url, $method, $fields)->results[0]->suffix_module;
@@ -314,21 +393,23 @@ class DynamicTablesController
 								$relation = CurlController::request($url, $method, $fields);
 								$arrayRelation  = (array)$relation->results[0];
 
-								$HTMLTable .= '<a href="' . $urlPage . '/manage/' . base64_encode($value[$item->title_column]) . '" target="_blank" class="badge badge-default border rounded bg-indigo">' . urldecode($arrayRelation[array_keys($arrayRelation)[1]]) . '</a>';
+								$HTMLTable .= '<a href="' . $urlPage . '/manage/' . base64_encode($value[$item->title_column]) . '" target="_blank" class="badge badge-default border rounded bg-indigo">' . View::text($arrayRelation[array_keys($arrayRelation)[1]]) . '</a>';
 							} else {
 
 								$HTMLTable .= $value[$item->title_column];
 							}
 
 							/*=============================================
-								Contenido tipo Órden
+								Order content
 								=============================================*/
 						} else if ($item->type_column == "order") {
 
 							$HTMLTable .= '<input type="number" class="form-control form-control-sm rounded changeOrder" value="' . $value[$item->title_column] . '" style="width:55px" idItem="' . base64_encode($value["id_" . $module->suffix_module]) . '" table="' . $module->title_module . '" suffix="' . $module->suffix_module . '" column="' . $item->title_column . '">';
 						} else if ($item->type_column == "posify") {
-							$HTMLTable .= '<a href="/posify?order=' . urldecode($value[$item->title_column]) . '" style="color:inherit">' . urldecode($value[$item->title_column]) . '</a>';
+							$HTMLTable .= '<a href="/posify?order=' . View::text($value[$item->title_column]) . '" style="color:inherit">' . View::text($value[$item->title_column]) . '</a>';
 						} else if ($item->type_column == "stock") {
+							$colorStock = "bg-secondary";
+
 							if ($value[$item->title_column] < 50) {
 								$colorStock = "bg-maroon";
 							}
@@ -341,7 +422,7 @@ class DynamicTablesController
 							$HTMLTable .= '<span class="badge badge-sm badge-default ' . $colorStock . ' rounded py-1 px-3 mx-1 mt-1 text-uppercase small">' . $value[$item->title_column] . '</span>';
 						} else {
 
-							$HTMLTable .= TemplateController::reduceText(urldecode($value[$item->title_column]), 25);
+							$HTMLTable .= View::raw(TemplateController::reduceText($value[$item->title_column], 25));
 						}
 
 						$HTMLTable .= '</td>';
@@ -350,8 +431,11 @@ class DynamicTablesController
 
 				if ($this->rolAdmin == "superadmin" || $module->editable_module == 1) {
 
-					$HTMLTable .= '<td class="text-center">
-		    					<a href="/' . $module->url_page . '/manage/' . base64_encode($value["id_" . $module->suffix_module]) . '/copy" class="btn btn-sm text-dark rounded m-0 p-0 border-0">
+					$HTMLTable .= '<td class="text-center">';
+
+					if (!$isWalkIn && !$isLocked) {
+
+						$HTMLTable .= '<a href="/' . $module->url_page . '/manage/' . base64_encode($value["id_" . $module->suffix_module]) . '/copy" class="btn btn-sm text-dark rounded m-0 p-0 border-0">
 		    						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-copy" viewBox="0 0 16 16">
 									  <path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"/>
 									</svg>
@@ -361,8 +445,14 @@ class DynamicTablesController
 			    					</a>
 			    					<button type="button" class="btn btn-sm text-maroon rounded m-0 p-0 border-0 deleteItem" idItem="' . base64_encode($value["id_" . $module->suffix_module]) . '" table="' . $module->title_module . '" suffix="' . $module->suffix_module . '">
 			    						<i class="bi bi-trash"></i>
-			    					</button>
-			    				</td>';
+			    					</button>';
+
+					} else {
+
+						$HTMLTable .= '<span class="badge badge-default border rounded text-muted small">Del sistema</span>';
+					}
+
+					$HTMLTable .= '</td>';
 				}
 
 				$HTMLTable .= '</tr>';
@@ -380,7 +470,7 @@ class DynamicTablesController
 	}
 
 	/*=============================================
-    Cambiar estado Boleano
+    Toggle a boolean
     =============================================*/
 	public $boolChange;
 	public $idItemChange;
@@ -408,6 +498,13 @@ class DynamicTablesController
 			$method = "PUT";
 			$fields = $this->columnChange . "=" . $this->boolChange;
 
+			$closedAt = CashSession::closedAt($this->tableChange, $this->columnChange, $this->boolChange);
+
+			if ($closedAt !== null) {
+
+				$fields .= "&date_end_cash=" . $closedAt;
+			}
+
 			$updateItem = CurlController::request($url, $method, $fields);
 
 			if ($updateItem->status == 200) {
@@ -423,7 +520,7 @@ class DynamicTablesController
 	}
 
 	/*=============================================
-    Cambiar selección
+    Change the selection
     =============================================*/
 	public $itemSelect;
 	public $idItemSelect;
@@ -458,7 +555,7 @@ class DynamicTablesController
 	}
 
 	/*=============================================
-    Cambiar orden
+    Change the order
     =============================================*/
 
 	public $numOrder;
@@ -484,42 +581,65 @@ class DynamicTablesController
 }
 
 /*=============================================
-Variables POST
+POST variables
 =============================================*/
+
+
+/*=============================================
+Branch and administrator come from the session, never from the request
+=============================================*/
+
+OfficeGuard::start();
+
+$sessionOffice = OfficeGuard::current();
+$sessionAdmin  = OfficeGuard::currentAdmin();
+
+if ($sessionOffice === null || $sessionAdmin === null) {
+
+    echo "logout";
+    exit;
+}
 
 if (isset($_POST["idItemDelete"])) {
 
 	$ajax = new DynamicTablesController();
 	$ajax->idItemDelete = $_POST["idItemDelete"];
+	PermissionGuard::enforce($_POST["tableDelete"]);
+
 	$ajax->tableDelete = $_POST["tableDelete"];
 	$ajax->suffixDelete = $_POST["suffixDelete"];
-	$ajax->token = $_POST["token"];
+	$ajax->token = Session::token();
 	$ajax->deleteItems();
 }
 
 /*=============================================
-Devolver tabla filtrada
+Return the filtered table
 =============================================*/
 
 if (isset($_POST["contentModule"])) {
 
 	$ajax = new DynamicTablesController();
+	// the module json names the table, so it is checked like the rest
+	$askedFor = json_decode($_POST["contentModule"]);
+
+	PermissionGuard::enforce((string) ($askedFor->title_module ?? ""));
+
 	$ajax->contentModule = $_POST["contentModule"];
 	$ajax->orderBy = $_POST["orderBy"];
 	$ajax->orderMode = $_POST["orderMode"];
 	$ajax->limit = $_POST["limit"];
 	$ajax->page = $_POST["page"];
-	$ajax->rolAdmin = $_POST["rolAdmin"];
+	$ajax->rolAdmin = (string) ($_SESSION["admin"]->rol_admin ?? "");
 	$ajax->search = $_POST["search"];
 	$ajax->between1 = $_POST["between1"];
 	$ajax->between2 = $_POST["between2"];
-	$ajax->idOffice = $_POST["idOffice"];
+	$ajax->idOffice = $sessionOffice;
 	$ajax->loadAjaxTable();
 }
 
 
 /*=============================================
-Cambiar estado Boleano
+Toggle a boolean
 =============================================*/
 
 if (isset($_POST["tableChange"])) {
@@ -527,15 +647,17 @@ if (isset($_POST["tableChange"])) {
 	$ajax = new DynamicTablesController();
 	$ajax->boolChange = $_POST["boolChange"];
 	$ajax->idItemChange = $_POST["idItemChange"];
+	PermissionGuard::enforce($_POST["tableChange"]);
+
 	$ajax->tableChange = $_POST["tableChange"];
 	$ajax->suffixChange = $_POST["suffixChange"];
 	$ajax->columnChange = $_POST["columnChange"];
-	$ajax->token = $_POST["token"];
+	$ajax->token = Session::token();
 	$ajax->changeBooleanItems();
 }
 
 /*=============================================
-Cambiar selección
+Change the selection
 =============================================*/
 
 if (isset($_POST["tableSelect"])) {
@@ -543,15 +665,17 @@ if (isset($_POST["tableSelect"])) {
 	$ajax = new DynamicTablesController();
 	$ajax->itemSelect = $_POST["itemSelect"];
 	$ajax->idItemSelect = $_POST["idItemSelect"];
+	PermissionGuard::enforce($_POST["tableSelect"]);
+
 	$ajax->tableSelect = $_POST["tableSelect"];
 	$ajax->suffixSelect = $_POST["suffixSelect"];
 	$ajax->columnSelect = $_POST["columnSelect"];
-	$ajax->token = $_POST["token"];
+	$ajax->token = Session::token();
 	$ajax->changeSelectItems();
 }
 
 /*=============================================
-Cambiar orden
+Change the order
 =============================================*/
 
 if (isset($_POST["tableOrder"])) {
@@ -559,9 +683,11 @@ if (isset($_POST["tableOrder"])) {
 	$ajax = new DynamicTablesController();
 	$ajax->numOrder = $_POST["numOrder"];
 	$ajax->idItemOrder = $_POST["idItemOrder"];
+	PermissionGuard::enforce($_POST["tableOrder"]);
+
 	$ajax->tableOrder = $_POST["tableOrder"];
 	$ajax->suffixOrder = $_POST["suffixOrder"];
 	$ajax->columnOrder = $_POST["columnOrder"];
-	$ajax->token = $_POST["token"];
+	$ajax->token = Session::token();
 	$ajax->changeOrderItems();
 }

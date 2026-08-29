@@ -1,15 +1,20 @@
-<?php 
+<?php
+
+require_once __DIR__ . "/../../lib/view.php";
 
 /*=============================================
-Iniciar variables de sesión
+Start the session
 =============================================*/
 
 ob_start();
-session_start();
+require_once __DIR__ . "/../../lib/csrf.guard.php";
+require_once __DIR__ . "/../../lib/theme.php";
+
+CsrfGuard::start();
 date_default_timezone_set("America/Bogota");
 
 /*=============================================
-Capturar parámetros de la url
+Read the url parameters
 =============================================*/
 
 $routesArray = explode("/", $_SERVER["REQUEST_URI"]);
@@ -22,7 +27,7 @@ foreach ($routesArray as $key => $value) {
 }
 
 /*=============================================
-Validar si existe la base de datos con la tabla admins
+Check whether the database has an admins table
 =============================================*/
 
 $url = "admins";
@@ -41,6 +46,43 @@ if($adminTable->status == 404){
 	// echo '<pre>'; print_r($admin); echo '</pre>';
 }
 
+/*=============================================
+Switch branch, only for accounts that belong to none.
+
+This runs before anything is drawn, so the header shows the branch that was
+just picked. Doing it further down left the header one render behind.
+=============================================*/
+
+if (isset($_GET["offices"]) && isset($_SESSION["admin"]) && OfficeGuard::canSwitch()) {
+
+	$requestedOffice = (int) explode("_", $_GET["offices"])[0];
+
+	/*=============================================
+	Zero is every branch at once, not a branch. Looking it up in offices
+	found nothing, so going back to Multi-Sucursal silently did nothing
+	=============================================*/
+
+	if ($requestedOffice === 0) {
+
+		$_SESSION["admin"]->id_office_admin = 0;
+		$_SESSION["admin"]->title_office    = "Multi-Sucursal";
+
+	} else {
+
+		$office = CurlController::request(
+			"offices?linkTo=id_office&equalTo=" . $requestedOffice . "&select=id_office,title_office",
+			"GET",
+			array()
+		);
+
+		if ($office->status == 200) {
+
+			$_SESSION["admin"]->id_office_admin = (int) $office->results[0]->id_office;
+			$_SESSION["admin"]->title_office    = $office->results[0]->title_office;
+		}
+	}
+}
+
 
 
 
@@ -51,53 +93,45 @@ if($adminTable->status == 404){
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<link rel="icon" href="https://cdn-icons-png.flaticon.com/512/9966/9966194.png">
+	<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
 	<!--=============================================
-	Validamos si admin existe
+	Check whether the admin exists
 	===============================================-->
 
 	<?php if (!empty($admin)): ?>
 
 		<!--=============================================
-		Título del Dashboard
+		Dashboard title
 		===============================================-->
 
-		<title><?php echo $admin->title_admin ?></title>
+		<title><?php echo View::text($admin->title_admin) ?></title>
 
 		<!--=============================================
-		Típografía del dashboard
+		Dashboard typeface
 		===============================================-->
 
-		<?php if ($admin->font_admin != null): ?>
-
-			<?php echo $admin->font_admin ?>
-
-		<?php endif ?>
+		<?php echo Theme::fontLink($admin->font_admin) ?>
 
 		<!--=============================================
-		Estilos propios del dashboard
+		Dashboard styles
 		===============================================-->
 
 		<style>
 			
 			/*=============================================
-			Típografía del dashboard
+			Dashboard typeface
 			=============================================*/
 
-			<?php if ($admin->font_admin != null):?>
-
-				body{
-					font-family: <?php echo str_replace("+"," ",explode("=",explode(":",explode("?",$admin->font_admin)[1])[0])[1]) ?>, sans-serif !important;	
-				}
-
-			<?php endif ?>
+			body{
+				font-family: <?php echo Theme::fontFamilyCss($admin->font_admin) ?>, sans-serif !important;
+			}
 
 			/*=============================================
-			Color del dashboard
+			Dashboard color
 			=============================================*/
 
 			.backColor{
@@ -138,7 +172,8 @@ if($adminTable->status == 404){
 	CUSTOM JS SERVER
 	===============================================-->
 
-	<script src="/views/assets/js/alerts/alerts.js"></script>
+	<script src="<?php echo View::asset('/views/assets/js/alerts/alerts.js') ?>"></script>
+	<script src="<?php echo View::asset('/views/assets/js/password/password.js') ?>"></script>
 
 	<!--=============================================
 	PLUGINS CSS
@@ -179,6 +214,9 @@ if($adminTable->status == 404){
 
 	<!-- https://jquery.com/ -->
 	<script src="/views/assets/plugins/jquery/jquery.min.js"></script>
+	<script>
+		$.ajaxSetup({ headers: { "X-CSRF-Token": "<?php echo CsrfGuard::token() ?>" } });
+	</script>
 	<!-- https://jqueryui.com/ -->
 	<script src="/views/assets/plugins/jquery-ui/jquery-ui.min.js"></script>
 	<!-- https://www.w3schools.com/bootstrap5/ -->
@@ -220,10 +258,11 @@ if($adminTable->status == 404){
 	<!--=============================================
 	CUSTOM CSS
 	===============================================-->
-	<link rel="stylesheet" href="/views/assets/css/custom/custom.css">
-	<link rel="stylesheet" href="/views/assets/css/dashboard/dashboard.css">
-	<link rel="stylesheet" href="/views/assets/css/colors/colors.css">
-	<link rel="stylesheet" href="/views/assets/css/fms/fms.css">
+	<link rel="stylesheet" href="<?php echo View::asset('/views/assets/css/custom/custom.css') ?>">
+	<link rel="stylesheet" href="<?php echo View::asset('/views/assets/css/ticket/ticket.css') ?>">
+	<link rel="stylesheet" href="<?php echo View::asset('/views/assets/css/dashboard/dashboard.css') ?>">
+	<link rel="stylesheet" href="<?php echo View::asset('/views/assets/css/colors/colors.css') ?>">
+	<link rel="stylesheet" href="<?php echo View::asset('/views/assets/css/fms/fms.css') ?>">
 
 
 </head>
@@ -249,7 +288,7 @@ if($adminTable->status == 404){
 	<?php if (isset($_SESSION["admin"])): ?>
 
 		<!--=============================================
-		PLANTILLA DASHBOARD
+		DASHBOARD TEMPLATE
 		===============================================-->
 
 		<div class="d-flex backDashboard" id="wrapper">
@@ -268,6 +307,26 @@ if($adminTable->status == 404){
 
 				<?php include "modules/nav.php" ?>
 
+				<?php
+
+				/*=============================================
+				A till left open on an earlier day stops the POS from selling,
+				so it is said on every page and not only inside Caja
+				=============================================*/
+
+				require_once __DIR__ . "/../../lib/cash.session.php";
+
+				$staleTill = CashSession::open((int) OfficeGuard::current());
+
+				if ($staleTill !== null && $staleTill["date_created_cash"] < date("Y-m-d") && $routesArray[0] != "caja"): ?>
+
+					<div class="alert alert-warning rounded d-flex justify-content-between align-items-center m-3 mb-0">
+						<span>La caja del <?php echo View::raw($staleTill["date_created_cash"]) ?> sigue abierta. No se puede vender hasta cerrarla.</span>
+						<a href="/caja" class="btn btn-danger btn-sm rounded">Ir a Caja</a>
+					</div>
+
+				<?php endif ?>
+
 				<!--=============================================
 				MAIN PAGE
 				===============================================-->
@@ -281,13 +340,13 @@ if($adminTable->status == 404){
 					<?php else: ?>
 
 						<!--=========================================
-						Validar permisos
+						Check permissions
 						===========================================-->
 
-						<?php if ($_SESSION["admin"]->rol_admin == "superadmin" || $_SESSION["admin"]->rol_admin == "admin" || $_SESSION["admin"]->rol_admin == "editor" && isset(json_decode(urldecode($_SESSION["admin"]->permissions_admin), true)[$routesArray[0]]) && json_decode(urldecode($_SESSION["admin"]->permissions_admin), true)[$routesArray[0]] == "on"): ?>
+						<?php if ($_SESSION["admin"]->rol_admin == "superadmin" || $_SESSION["admin"]->rol_admin == "admin" || $_SESSION["admin"]->rol_admin == "editor" && isset(json_decode((string) ($_SESSION["admin"]->permissions_admin ?? "{}"), true)[$routesArray[0]]) && json_decode((string) ($_SESSION["admin"]->permissions_admin ?? "{}"), true)[$routesArray[0]] == "on"): ?>
 
 							<!--=========================================
-							Agregamos páginas dinámicas y personalizadas
+							Add dynamic and custom pages
 							===========================================-->
 
 							<?php 
@@ -326,13 +385,13 @@ if($adminTable->status == 404){
 
 
 					<!--=========================================
-				 	Validar permisos para super y admins
+				 	Check superadmin and admin permissions
 					===========================================-->
 
 					<?php if ($_SESSION["admin"]->rol_admin == "superadmin" || $_SESSION["admin"]->rol_admin == "admin"): ?>
 
 						<!--=========================================
-						Agregamos la página inicial
+						Add the home page
 						===========================================-->
 
 						<?php 
@@ -362,20 +421,34 @@ if($adminTable->status == 404){
 					<?php else: ?>
 
 					<!--=========================================
-				 	Validar permisos para editores
+				 	Check editor permissions
 					===========================================-->
 
 						<?php if ($_SESSION["admin"]->rol_admin == "editor"): ?>
 
 							<?php
 
-								$url = "pages?linkTo=url_page&equalTo=".array_keys(json_decode(urldecode($_SESSION["admin"]->permissions_admin),true))[0];
+								/*=============================================
+								An editor with no page granted has nowhere to land, and taking
+								the first key of an empty list used to be a fatal error
+								=============================================*/
+
+								$granted = json_decode((string) ($_SESSION["admin"]->permissions_admin ?? "{}"), true);
+								$granted = is_array($granted) ? array_keys($granted) : array();
+
+								if (empty($granted)) {
+
+									echo '<div class="alert alert-warning m-4 rounded">Tu cuenta no tiene ninguna página asignada. Pídele a un administrador que te dé permisos.</div>';
+
+								} else {
+
+									$url = "pages?linkTo=url_page&equalTo=" . $granted[0];
 								$method = "GET";
 								$fields = array();
 
 								$page = CurlController::request($url,$method,$fields);
 
-								$routesArray[0] = array_keys(json_decode(urldecode($_SESSION["admin"]->permissions_admin),true))[0];
+								$routesArray[0] = $granted[0];
 
 								if($page->status == 200 && $page->results[0]->type_page == "modules"){
 
@@ -390,6 +463,7 @@ if($adminTable->status == 404){
 									include "pages/404/404.php";
 								
 								}
+							}
 
 							?>
 
@@ -406,7 +480,7 @@ if($adminTable->status == 404){
 		<?php 
 
 		/*=============================================
-    	Incluimos modal de perfiles
+    	Include the profile modal
     	=============================================*/
 
     	include "modules/modals/profile.php"; 
@@ -417,7 +491,7 @@ if($adminTable->status == 404){
 	    if($_SESSION["admin"]->rol_admin == "superadmin"){
 
 	    	/*=============================================
-	    	Incluimos modal de páginas
+	    	Include the pages modal
 	    	=============================================*/
 
 		    include "views/modules/modals/pages.php";
@@ -427,7 +501,7 @@ if($adminTable->status == 404){
 		    $managePage->managePage();
 
 		    /*=============================================
-	    	Incluimos modal de módulos
+	    	Include the modules modal
 	    	=============================================*/
 
 		    include "views/modules/modals/modules.php";
@@ -444,17 +518,17 @@ if($adminTable->status == 404){
 	CUSTOM JS
 	===============================================-->
 
-	<script src="/views/assets/js/dashboard/dashboard.js"></script>
-	<script src="/views/assets/js/pages/pages.js"></script>
-	<script src="/views/assets/js/modules/modules.js"></script>
-	<script src="/views/assets/js/dynamic-forms/dynamic-forms.js"></script>
-	<script src="/views/assets/js/dynamic-tables/dynamic-tables.js"></script>
-	<script src="/views/assets/js/fms/fms.js"></script>
-	<script src="/views/assets/js/purchase/purchase.js"></script>
+	<script src="<?php echo View::asset('/views/assets/js/dashboard/dashboard.js') ?>"></script>
+	<script src="<?php echo View::asset('/views/assets/js/pages/pages.js') ?>"></script>
+	<script src="<?php echo View::asset('/views/assets/js/modules/modules.js') ?>"></script>
+	<script src="<?php echo View::asset('/views/assets/js/dynamic-forms/dynamic-forms.js') ?>"></script>
+	<script src="<?php echo View::asset('/views/assets/js/dynamic-tables/dynamic-tables.js') ?>"></script>
+	<script src="<?php echo View::asset('/views/assets/js/fms/fms.js') ?>"></script>
+	<script src="<?php echo View::asset('/views/assets/js/purchase/purchase.js') ?>"></script>
 		
 	<?php endif ?>
 
-	<script src="/views/assets/js/forms/forms.js"></script>
+	<script src="<?php echo View::asset('/views/assets/js/forms/forms.js') ?>"></script>
 	
 	
 </body>

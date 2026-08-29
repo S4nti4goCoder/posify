@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . "/../../../../../lib/view.php";
+
 $xAxis = array();
 $yAxis = array();
 
@@ -7,57 +9,88 @@ $content = json_decode($module->content_module);
 
 $suffix = explode("_", $content->yAxis);
 $suffix = end($suffix);
-if ($_SESSION["admin"]->id_office_admin > 0) {
-	if ($module->title_module == "gráfico de ventas diarias" && $module->id_page_module == 13) {
-		$url = $content->table . "?linkTo=status_order,id_office_order&equalTo=Completada," . $_SESSION["admin"]->id_office_admin . "&select=" . $content->xAxis . "," . $content->yAxis;
-	} else if ($module->title_module == "ventas por sucursal" || $module->title_module == "compras por sucursal") {
-		$content->xAxis = "title_office";
-		$url = "relations?rel=" . $content->table . ",offices&type=" . $suffix . ",office&linkTo=id_office_" . $suffix . "&equalTo=" . $_SESSION["admin"]->id_office_admin . "&select=" . $content->xAxis . "," . $content->yAxis;
-	} else {
-		$url = $content->table . "?linkTo=id_office_" . $suffix . "&equalTo=" . $_SESSION["admin"]->id_office_admin . "&select=" . $content->xAxis . "," . $content->yAxis;
+
+require_once __DIR__ . "/../../../../../api/models/connection.php";
+
+/*=============================================
+Grouped and summed by the database. This used to select every row and
+then run a loop inside a loop, comparing each row against every label.
+
+Table and columns come from the module settings, so they are proven
+against the catalog before reaching the query.
+=============================================*/
+
+$table   = (string) $content->table;
+$byBranch = $module->title_module == "ventas por sucursal"
+	|| $module->title_module == "compras por sucursal";
+
+if ($byBranch) {
+
+	$content->xAxis = "title_office";
+}
+
+$xCol = (string) $content->xAxis;
+$yCol = (string) $content->yAxis;
+
+$columns = SchemaGuard::tableExists($table) ? SchemaGuard::columnsOf($table) : array();
+$officeColumn = "id_office_" . $suffix;
+
+$valid = $columns !== array()
+	&& in_array($yCol, $columns, true)
+	&& ($byBranch ? in_array($officeColumn, $columns, true) : in_array($xCol, $columns, true));
+
+if ($valid) {
+
+	$from  = "`" . $table . "` t";
+	$group = "t.`" . $xCol . "`";
+
+	if ($byBranch) {
+
+		$from  = "`" . $table . "` t INNER JOIN offices o ON o.id_office = t.`" . $officeColumn . "`";
+		$group = "o.title_office";
+
+	} else if ($module->title_module == "gráfico de ventas mensuales") {
+
+		$group = "LEFT(t.`" . $xCol . "`, 7)";
 	}
-} else {
-	if ($module->title_module == "gráfico de ventas diarias" && $module->id_page_module == 13) {
-		$url = $content->table . "?linkTo=status_order&equalTo=Completada&select=" . $content->xAxis . "," . $content->yAxis;
-	} else if ($module->title_module == "ventas por sucursal" || $module->title_module == "compras por sucursal") {
-		$content->xAxis = "title_office";
-		$url = "relations?rel=" . $content->table . ",offices&type=" . $suffix . ",office&select=" . $content->xAxis . "," . $content->yAxis;
-	} else {
-		$url = $content->table . "?select=" . $content->xAxis . "," . $content->yAxis;
+
+	$where = array();
+	$args  = array();
+
+	if ($module->title_module == "gráfico de ventas diarias" && $module->id_page_module == 13
+		&& in_array("status_order", $columns, true)) {
+
+		$where[] = "t.status_order = 'Completada'";
+	}
+
+	if ($_SESSION["admin"]->id_office_admin > 0 && in_array($officeColumn, $columns, true)) {
+
+		$where[] = "t.`" . $officeColumn . "` = :office";
+		$args[":office"] = (int) $_SESSION["admin"]->id_office_admin;
+	}
+
+	$sql = "SELECT " . $group . " AS label, COALESCE(SUM(t.`" . $yCol . "`), 0) AS amount
+	          FROM " . $from;
+
+	if (!empty($where)) {
+
+		$sql .= " WHERE " . implode(" AND ", $where);
+	}
+
+	$sql .= " GROUP BY label ORDER BY label";
+
+	$stmt = Connection::connect()->prepare($sql);
+	$stmt->execute($args);
+
+	foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+
+		$label = (string) $row["label"];
+
+		$xAxis[] = $label;
+		$yAxis[$label] = $row["amount"] + 0;
 	}
 }
 
-$method = "GET";
-$fields = array();
-
-$response = CurlController::request($url, $method, $fields);
-if ($response->status == 200) {
-	$graphic = $response->results;
-	foreach (json_decode(json_encode($graphic), true) as $index => $item) {
-		if ($module->title_module == "gráfico de ventas mensuales") {
-			array_push($xAxis, substr($item[$content->xAxis], 0, -3));
-			$yAxis[substr($item[$content->xAxis], 0, -3)] = 0;
-		} else {
-			array_push($xAxis, $item[$content->xAxis]);
-			$yAxis[$item[$content->xAxis]] = 0;
-		}
-	}
-
-	$xAxis = array_values(array_unique($xAxis));
-	foreach (json_decode(json_encode($graphic), true) as $index => $item) {
-		for ($i = 0; $i < count($xAxis); $i++) {
-			if ($module->title_module == "gráfico de ventas mensuales") {
-				if ($xAxis[$i] == substr($item[$content->xAxis], 0, -3)) {
-					$yAxis[substr($item[$content->xAxis], 0, -3)] +=  $item[$content->yAxis];
-				}
-			} else {
-				if ($xAxis[$i] == $item[$content->xAxis]) {
-					$yAxis[$item[$content->xAxis]] +=  $item[$content->yAxis];
-				}
-			}
-		}
-	}
-}
 
 ?>
 
@@ -107,7 +140,7 @@ if ($response->status == 200) {
 
 					<?php
 					foreach ($xAxis as $index => $item) {
-						echo "'" . urldecode($item) . "',";
+						echo View::js($item) . ",";
 					}
 					?>
 
@@ -119,7 +152,7 @@ if ($response->status == 200) {
 
 						<?php
 						foreach ($xAxis as $index => $item) {
-							echo "'" . $yAxis[$item] . "',";
+							echo View::js($yAxis[$item]) . ",";
 						}
 						?>
 

@@ -13,121 +13,121 @@
 		<?php 
 		
 		/*=============================================
-		Formulario de tipo Texto		
+		Text field
 		=============================================*/
 		
 		include "forms/text.php"; 
 
 		/*=============================================
-		Formulario de tipo TextoArea			
+		Textarea field
 		=============================================*/
 		
 		include "forms/textarea.php"; 
 
 		/*=============================================
-		Formulario de tipo Número Entero		
+		Integer field
 		=============================================*/
 		
 		include "forms/int.php"; 
 
 		/*=============================================
-		Formulario de tipo Número con decimal			
+		Decimal field
 		=============================================*/
 		
 		include "forms/double.php"; 
 
 		/*=============================================
-		Formulario de tipo Selección	
+		Select field
 		=============================================*/
 		
 		include "forms/select.php"; 
 
 		/*=============================================
-		Formulario de tipo Boleano		
+		Boolean field
 		=============================================*/
 		
 		include "forms/boolean.php"; 
 
 		/*=============================================
-		Formulario de tipo Arreglo	
+		Array field
 		=============================================*/
 		
 		include "forms/array.php"; 
 
 		/*=============================================
-		Formulario de tipo Objeto		
+		Object field
 		=============================================*/
 		
 		include "forms/object.php"; 
 
 		/*=============================================
-		Formulario de tipo JSON		
+		JSON field
 		=============================================*/
 		
 		include "forms/_json.php"; 
 
 		/*=============================================
-		Formulario de tipo Archivo, Imagen, Video
+		File, image and video field
 		=============================================*/
 		
 		include "forms/file.php"; 
 
 		/*=============================================
-		Formulario de tipo Fecha	
+		Date field
 		=============================================*/
 		
 		include "forms/date.php"; 
 
 		/*=============================================
-		Formulario de tipo tiempo	
+		Time field
 		=============================================*/
 		
 		include "forms/time.php"; 
 
 		/*=============================================
-		Formulario de tipo Fecha y Tiempo
+		Date and time field
 		=============================================*/
 		
 		include "forms/datetime.php"; 
 
 		/*=============================================
-		Formulario de tipo Fecha y Tiempo Automático
+		Automatic timestamp field
 		=============================================*/
 
 		include "forms/timestamp.php"; 
 
 		/*=============================================
-		Formulario de tipo Código
+		Code field
 		=============================================*/
 
 		include "forms/code.php"; 
 
 		/*=============================================
-		Formulario de tipo Color
+		Color field
 		=============================================*/
 
 		include "forms/color.php"; 
 
 		/*=============================================
-		Formulario de tipo Contraseña
+		Password field
 		=============================================*/
 
 		include "forms/password.php"; 
 
 		/*=============================================
-		Formulario de tipo Email
+		Email field
 		=============================================*/
 
 		include "forms/email.php"; 
 
 		/*=============================================
-		Formulario de tipo Relaciones
+		Relations field
 		=============================================*/
 
 		include "forms/relations.php";
 
 		/*=============================================
-		Formulario de tipo Relaciones
+		Relations field
 		=============================================*/
 
 		include "forms/chatgpt.php";

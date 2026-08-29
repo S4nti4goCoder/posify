@@ -4,28 +4,30 @@
 			<i class="bi bi-list"></i>
 		</button>
 	</div>
-	<div class="d-flex">
-		<div class="p-2">
-			<?php if ($_SESSION["admin"]->id_office_admin > 0): ?>
-				<?php if (!isset($_SESSION["admin"]->phone_office)): ?>
-					<?php if (isset($_GET["offices"])): ?>
-						<a href="#myOffices" data-bs-toggle="modal" class="badge badge-default backColor small rounded py-2 px-3"><?php echo urldecode(explode("_", $_GET["offices"])[1]) ?></a>
-					<?php else: ?>
-						<a href="#myOffices" data-bs-toggle="modal" class="badge badge-default backColor small rounded py-2 px-3"><?php echo urldecode($_SESSION["admin"]->title_office) ?></a>
-					<?php endif ?>
-				<?php else: ?>
-					<span class="badge badge-default backColor small rounded py-2 px-3"><?php echo urldecode($_SESSION["admin"]->title_office) ?></span>
-				<?php endif ?>
+	<div class="d-flex flex-wrap align-items-center">
+		<div class="p-2 d-flex flex-wrap align-items-center">
+			<?php
+
+			/*=============================================
+			The branch name comes from the session, never from the url.
+			Reading it from ?offices= broke on an empty value and let any
+			markup in the url land straight in the header.
+			=============================================*/
+
+			$officeLabel = (int) $_SESSION["admin"]->id_office_admin > 0
+				? (string) ($_SESSION["admin"]->title_office ?? "")
+				: "Multi-Sucursal";
+
+			?>
+
+			<?php if (OfficeGuard::canSwitch()): ?>
+				<a href="#myOffices" data-bs-toggle="modal" class="badge badge-default backColor small rounded py-2 px-3 text-truncate" style="max-width:55vw"><?php echo htmlspecialchars($officeLabel, ENT_QUOTES, "UTF-8") ?></a>
 			<?php else: ?>
-				<?php if (isset($_GET["offices"])): ?>
-					<a href="#myOffices" data-bs-toggle="modal" class="badge badge-default backColor small rounded py-2 px-3"><?php echo urldecode(explode("_", $_GET["offices"])[1]) ?></a>
-				<?php else: ?>
-					<a href="#myOffices" data-bs-toggle="modal" class="badge badge-default backColor small rounded py-2 px-3">Multi-Sucursal</a>
-				<?php endif ?>
+				<span class="badge badge-default backColor small rounded py-2 px-3 text-truncate" style="max-width:55vw"><?php echo htmlspecialchars($officeLabel, ENT_QUOTES, "UTF-8") ?></span>
 			<?php endif ?>
-			<a href="#myProfile" class="ms-2" data-bs-toggle="modal" style="color:inherit;">
+			<a href="#myProfile" class="ms-2 text-truncate" data-bs-toggle="modal" style="color:inherit; max-width:45vw">
 				<i class="bi bi-person-circle"></i>
-				<?php echo urldecode($_SESSION["admin"]->name_admin) ?>
+				<?php echo View::text($_SESSION["admin"]->name_admin) ?>
 			</a>
 		</div>
 		<div class="p-2 mx-2">

@@ -1,5 +1,5 @@
 <div class="container-fluid backgroundImage" <?php if (!empty($admin->back_admin)): ?>
-	style="background-image: url(<?php echo $admin->back_admin ?>)"
+	style="background-image: url(<?php echo View::url($admin->back_admin) ?>)"
 <?php endif ?>>
 
 	

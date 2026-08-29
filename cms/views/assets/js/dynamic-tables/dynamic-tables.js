@@ -1,5 +1,5 @@
 /*=============================================
-Paginación
+Pagination
 =============================================*/
 
 function initPagination() {
@@ -54,7 +54,7 @@ function initPagination() {
 initPagination();
 
 /*=============================================
-Cambio de límite de registros
+Record limit changed
 =============================================*/
 
 $(document).on("change", ".changeLimit", function () {
@@ -69,7 +69,7 @@ $(document).on("change", ".changeLimit", function () {
   var between2 = $("#between2").val();
 
   /*=============================================
-	Actualizamos el límite en el input oculto
+	Store the limit in the hidden input
 	=============================================*/
 
   $("#limitTable").val(limit);
@@ -88,7 +88,7 @@ $(document).on("change", ".changeLimit", function () {
 });
 
 /*=============================================
-Cambio de órden de registros
+Record order changed
 =============================================*/
 
 $(document).on("click", ".orderFilter", function () {
@@ -103,14 +103,14 @@ $(document).on("click", ".orderFilter", function () {
   var between2 = $("#between2").val();
 
   /*=============================================
-	Actualizamos el orderBy y el orderMode en el input oculto
+	Store orderBy and orderMode in the hidden input
 	=============================================*/
 
   $("#orderByTable").val(orderBy);
   $("#orderModeTable").val(orderMode);
 
   /*=============================================
-	Cambiar dirección de flecha
+	Flip the arrow
 	=============================================*/
 
   if (orderMode == "ASC") {
@@ -137,7 +137,7 @@ $(document).on("click", ".orderFilter", function () {
 });
 
 /*=============================================
-Búsqueda de registros
+Record search
 =============================================*/
 
 $(document).on("keyup", "#searchItem", function () {
@@ -152,7 +152,7 @@ $(document).on("keyup", "#searchItem", function () {
   var between2 = $("#between2").val();
 
   /*=============================================
-	Actualizamos la búsqueda en el input oculto
+	Store the search term in the hidden input
 	=============================================*/
 
   $("#searchTable").val(search);
@@ -171,7 +171,7 @@ $(document).on("keyup", "#searchItem", function () {
 });
 
 /*=============================================
-Filtrar por fechas
+Filter by date
 =============================================*/
 
 $("#daterange-btn").daterangepicker(
@@ -232,14 +232,14 @@ $("#daterange-btn").daterangepicker(
     var between2 = end.format("YYYY-MM-DD");
 
     /*=============================================
-		Actualizando el selector de fechas
+		Updating the date picker
 		=============================================*/
 
     $("#startDate").html(between1);
     $("#endDate").html(between2);
 
     /*=============================================
-		Actualizando las fechas de los input ocultos
+		Updating the dates in the hidden inputs
 		=============================================*/
 
     $("#between1").val(between1);
@@ -260,7 +260,7 @@ $("#daterange-btn").daterangepicker(
 );
 
 /*=============================================
-Cargar tabla con Ajax
+Load the table over Ajax
 =============================================*/
 
 function loadAjaxTable(
@@ -303,7 +303,7 @@ function loadAjaxTable(
       }
 
       /*=============================================
-			Limpiar la selección de items
+			Clear the item selection
 			=============================================*/
 
       $("#checkItems").val("");
@@ -311,13 +311,13 @@ function loadAjaxTable(
 
       if (JSON.parse(response).HTMLTable != "") {
         /*=============================================
-				Aparecer filtros y paginación
+				Show filters and pagination
 				=============================================*/
 
         $(".blockFooter").show();
 
         /*=============================================
-				Actualizamos la tabla
+				Refresh the table
 				=============================================*/
 
         $("#loadTable").html(JSON.parse(response).HTMLTable);
@@ -329,7 +329,7 @@ function loadAjaxTable(
           filter == "range"
         ) {
           /*=============================================
-					Actualizamos la paginación
+					Refresh the pagination
 					=============================================*/
 
           $("#cont-pagination").html(`
@@ -345,7 +345,7 @@ function loadAjaxTable(
         }
 
         /*=============================================
-				Actualizamos los registros
+				Update the records
 				=============================================*/
 
         $("#startItems").html((page - 1) * limit + 1);
@@ -364,7 +364,7 @@ function loadAjaxTable(
         $("#totalItems").html(JSON.parse(response).totalData);
       } else {
         /*=============================================
-				Actualizamos la tabla
+				Refresh the table
 				=============================================*/
 
         $("#loadTable").html(`
@@ -378,7 +378,7 @@ function loadAjaxTable(
 				 `);
 
         /*=============================================
-				Esconder filtros y paginación
+				Hide filters and pagination
 				=============================================*/
 
         $(".blockFooter").hide();
@@ -388,7 +388,7 @@ function loadAjaxTable(
 }
 
 /*=============================================
-Seleccionar Item Individual
+Select a single item
 =============================================*/
 
 $(document).on("change", ".checkItem", function () {
@@ -416,7 +416,7 @@ $(document).on("change", ".checkItem", function () {
 });
 
 /*=============================================
-Seleccionar masiva de items
+Select items in bulk
 =============================================*/
 
 $(document).on("click", ".checkAllItems", function () {
@@ -468,7 +468,7 @@ $(document).on("click", ".checkAllItems", function () {
 });
 
 /*=============================================
-Eliminar Item Individual
+Delete a single item
 =============================================*/
 
 $(document).on("click", ".deleteItem", function () {
@@ -486,7 +486,6 @@ $(document).on("click", ".deleteItem", function () {
         data.append("idItemDelete", idItem);
         data.append("tableDelete", table);
         data.append("suffixDelete", suffix);
-        data.append("token", localStorage.getItem("tokenAdmin"));
 
         $.ajax({
           url: "/ajax/dynamic-tables.ajax.php",
@@ -500,9 +499,25 @@ $(document).on("click", ".deleteItem", function () {
               fncMatPreloader("off");
               fncSweetAlert(
                 "success",
-                "El registro ha sido eliminado con éxito",
-                setTimeout(() => location.reload(), 1250)
+                "El registro ha sido eliminado con éxito", "");
+              setTimeout(() => location.reload(), 1250)
+            } else if (String(response).indexOf("in_use") === 0) {
+              fncMatPreloader("off");
+              fncSweetAlert(
+                "error",
+                fncDependencyMessage(response),
+                ""
               );
+            } else if (String(response).trim() == "protected") {
+              fncMatPreloader("off");
+              fncSweetAlert(
+                "error",
+                "El cliente Consumidor Final no se puede eliminar",
+                ""
+              );
+            } else {
+              fncMatPreloader("off");
+              fncSweetAlert("error", "No se pudo eliminar el registro", "");
             }
           },
         });
@@ -512,7 +527,7 @@ $(document).on("click", ".deleteItem", function () {
 });
 
 /*=============================================
-Eliminar items de forma masiva
+Bulk delete items
 =============================================*/
 
 $(document).on("click", ".deleteAllItems", function () {
@@ -536,7 +551,6 @@ $(document).on("click", ".deleteAllItems", function () {
         data.append("idItemDelete", idItems);
         data.append("tableDelete", table);
         data.append("suffixDelete", suffix);
-        data.append("token", localStorage.getItem("tokenAdmin"));
 
         $.ajax({
           url: "/ajax/dynamic-tables.ajax.php",
@@ -550,9 +564,25 @@ $(document).on("click", ".deleteAllItems", function () {
               fncMatPreloader("off");
               fncSweetAlert(
                 "success",
-                "Los registros han sido eliminados con éxito",
-                setTimeout(() => location.reload(), 1250)
+                "Los registros han sido eliminados con éxito", "");
+              setTimeout(() => location.reload(), 1250)
+            } else if (String(response).indexOf("in_use") === 0) {
+              fncMatPreloader("off");
+              fncSweetAlert(
+                "error",
+                fncDependencyMessage(response),
+                ""
               );
+            } else if (String(response).trim() == "protected") {
+              fncMatPreloader("off");
+              fncSweetAlert(
+                "error",
+                "El cliente Consumidor Final no se puede eliminar",
+                ""
+              );
+            } else {
+              fncMatPreloader("off");
+              fncSweetAlert("error", "No se pudo eliminar el registro", "");
             }
           },
         });
@@ -562,7 +592,7 @@ $(document).on("click", ".deleteAllItems", function () {
 });
 
 /*=============================================
-Cambiar estado de un registro boolean
+Toggle a boolean record
 =============================================*/
 
 $(document).on("click", ".changeBoolean", function () {
@@ -585,7 +615,6 @@ $(document).on("click", ".changeBoolean", function () {
   data.append("tableChange", table);
   data.append("suffixChange", suffix);
   data.append("columnChange", column);
-  data.append("token", localStorage.getItem("tokenAdmin"));
 
   $.ajax({
     url: "/ajax/dynamic-tables.ajax.php",
@@ -603,7 +632,7 @@ $(document).on("click", ".changeBoolean", function () {
 });
 
 /*=============================================
-Cambiar estado boleano masivo
+Toggle booleans in bulk
 =============================================*/
 
 $(document).on("click", ".myBooleans", function () {
@@ -633,7 +662,6 @@ $(document).on("click", ".myBooleans", function () {
       data.append("tableChange", table);
       data.append("suffixChange", suffix);
       data.append("columnChange", column);
-      data.append("token", localStorage.getItem("tokenAdmin"));
 
       $.ajax({
         url: "/ajax/dynamic-tables.ajax.php",
@@ -646,9 +674,8 @@ $(document).on("click", ".myBooleans", function () {
           if (response == 200) {
             fncSweetAlert(
               "success",
-              "los registros han sido actualizado con éxito",
-              setTimeout(() => location.reload(), 1250)
-            );
+              "los registros han sido actualizado con éxito", "");
+            setTimeout(() => location.reload(), 1250)
           }
         },
       });
@@ -657,7 +684,7 @@ $(document).on("click", ".myBooleans", function () {
 });
 
 /*=============================================
-Cambiar selección masiva
+Change the bulk selection
 =============================================*/
 
 $(document).on("click", ".mySelects", function () {
@@ -692,7 +719,6 @@ $(document).on("click", ".mySelects", function () {
       data.append("tableSelect", table);
       data.append("suffixSelect", suffix);
       data.append("columnSelect", column);
-      data.append("token", localStorage.getItem("tokenAdmin"));
 
       $.ajax({
         url: "/ajax/dynamic-tables.ajax.php",
@@ -705,9 +731,8 @@ $(document).on("click", ".mySelects", function () {
           if (response == 200) {
             fncSweetAlert(
               "success",
-              "los registros han sido actualizado con éxito",
-              setTimeout(() => location.reload(), 1250)
-            );
+              "los registros han sido actualizado con éxito", "");
+            setTimeout(() => location.reload(), 1250)
           }
         },
       });
@@ -716,7 +741,7 @@ $(document).on("click", ".mySelects", function () {
 });
 
 /*=============================================
-Cambiar el orden de un registro
+Reorder a record
 =============================================*/
 
 $(document).on("change", ".changeOrder", function () {
@@ -732,7 +757,6 @@ $(document).on("change", ".changeOrder", function () {
   data.append("tableOrder", table);
   data.append("suffixOrder", suffix);
   data.append("columnOrder", column);
-  data.append("token", localStorage.getItem("tokenAdmin"));
 
   $.ajax({
     url: "/ajax/dynamic-tables.ajax.php",
@@ -748,3 +772,26 @@ $(document).on("change", ".changeOrder", function () {
     },
   });
 });
+
+/*=============================================
+Why a record cannot be deleted, and what to do instead
+=============================================*/
+
+function fncDependencyMessage(response) {
+  var child = String(response).split(":")[1] || "";
+
+  var reasons = {
+    sales:
+      "Este producto tiene ventas registradas. Apágalo con el interruptor de Estado para retirarlo del punto de venta.",
+    purchases:
+      "Este producto tiene compras registradas. Apágalo con el interruptor de Estado en vez de borrarlo.",
+    stock_movements:
+      "Este producto tiene movimientos de inventario. Apágalo con el interruptor de Estado en vez de borrarlo.",
+    products:
+      "Esta categoría tiene productos asignados. Muévelos a otra categoría o apaga la categoría.",
+    orders:
+      "Este cliente tiene órdenes registradas. No se puede borrar sin perder ese historial."
+  };
+
+  return reasons[child] || "Hay registros que dependen de este.";
+}

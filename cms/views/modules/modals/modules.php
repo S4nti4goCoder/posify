@@ -5,6 +5,9 @@
 
       <form method="POST" class="needs-validation" novalidate>
 
+		<?php echo CsrfGuard::field() ?>
+
+
         <!-- Modal Header -->
         <div class="modal-header">
           <h4 class="modal-title text-capitalize">Módulos</h4>
@@ -15,7 +18,7 @@
         <div class="modal-body px-4">
 
           <!--=============================================
-          Seleccionar tipo de módulo
+          Pick the module type
           ===============================================-->
 
           <div class="form-group mb-3">
@@ -41,7 +44,7 @@
           </div>
 
           <!--=============================================
-          Agregar título al módulo
+          Set the module title
           ===============================================-->
 
           <div class="form-group mb-3">
@@ -62,7 +65,7 @@
           </div>
 
           <!--=============================================
-          Agregar sufijo al módulo de tabla
+          Set the suffix on the table module
           ===============================================-->
 
           <div class="form-group mb-3" id="suffixModule" style="display:none">
@@ -81,7 +84,7 @@
           </div>
 
           <!--=============================================
-          Agregar ancho al módulo
+          Set the module width
           ===============================================-->
 
           <div class="form-group mb-3">
@@ -102,7 +105,7 @@
           </div>
 
            <!--=============================================
-          Agregar opción editable a la info del módulo tabla
+          Add the editable flag to the table module
           ===============================================-->
 
           <div class="form-group mb-3" id="editableModule" style="display:none">
@@ -120,13 +123,13 @@
           </div>
 
           <!--=============================================
-          Agregar campos para métricas
+          Add the metric fields
           ===============================================-->
 
           <div id="metricsBlock" class="row row-cols-1 row-cols-md-3 row-cols-lg-6" style="display:none">
 
             <!--=============================================
-            Elegir el tipo de métrica
+            Pick the metric type
             ===============================================-->
             
             <div class="col mb-3">
@@ -145,7 +148,7 @@
             </div>
 
             <!--=============================================
-            Elegir la tabla 
+            Pick the table
             ===============================================-->
 
             <div class="col mb-3">
@@ -160,7 +163,7 @@
             </div>
 
             <!--=============================================
-            Elegir la columna
+            Pick the column
             ===============================================-->
 
             <div class="col mb-3">
@@ -175,7 +178,7 @@
             </div>
 
             <!--=============================================
-            Elegir la configuración
+            Pick the settings
             ===============================================-->
 
             <div class="col mb-3">
@@ -193,7 +196,7 @@
             </div>
 
             <!--=============================================
-            Elegir el ícono
+            Pick the icon
             ===============================================-->
 
             <div class="col mb-3">
@@ -208,7 +211,7 @@
             </div>
 
             <!--=============================================
-            Elegir el color
+            Pick the color
             ===============================================-->
 
             <div class="col mb-3">
@@ -245,13 +248,13 @@
           </div>
 
           <!--=============================================
-          Agregar campos para gráficos
+          Add the chart fields
           ===============================================-->
 
           <div id="graphicsBlock" class="row row-cols-1 row-cols-md-3 row-cols-lg-5" style="display:none">
 
             <!--=============================================
-            Elegir el tipo de gráfico
+            Pick the chart type
             ===============================================-->
 
             <div class="col mb-3">
@@ -269,7 +272,7 @@
             </div>
 
             <!--=============================================
-            Elegir la tabla
+            Pick the table
             ===============================================-->
 
             <div class="col mb-3">
@@ -286,7 +289,7 @@
             </div>
 
             <!--=============================================
-            Elegir la columna que va en el eje X
+            Pick the column for the X axis
             ===============================================-->
 
             <div class="col mb-3">
@@ -303,7 +306,7 @@
             </div>
 
             <!--=============================================
-            Elegir la columna que va en el eje Y
+            Pick the column for the Y axis
             ===============================================-->
 
             <div class="col mb-3">
@@ -320,7 +323,7 @@
             </div>
 
             <!--=============================================
-            Elegir el color
+            Pick the color
             ===============================================-->
 
             <div class="col mb-3">
@@ -357,7 +360,7 @@
           </div>
 
           <!--=============================================
-          Agregar campos para tablas y columnas
+          Add the table and column fields
           ===============================================-->
 
           <div id="columnsBlock" style="display:none">

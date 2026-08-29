@@ -1,43 +1,32 @@
 <?php
 
 /*=============================================
-Asignar sucursal a un administrador general
+The branch switch happens in template.php, before anything is drawn, so the
+header reflects it on the same render.
 =============================================*/
-if ($_SESSION["admin"]->id_office_admin == 0 && isset($_GET["offices"])) {
-    $_SESSION["admin"]->id_office_admin = explode("_", $_GET["offices"])[0];
-    $_SESSION["admin"]->title_office = explode("_", $_GET["offices"])[1];
-}
-
-if (isset($_GET["offices"]) && $_SESSION["admin"]->id_office_admin > 0) {
-    $_SESSION["admin"]->id_office_admin = explode("_", $_GET["offices"])[0];
-    $_SESSION["admin"]->title_office = explode("_", $_GET["offices"])[1];
-}
 
 /*=============================================
-Variable para actualizar el stock
-=============================================*/
-$updateStock = false;
-
-/*=============================================
-Abrir la página correspondiente del Dashboard
+Open the matching dashboard page
 =============================================*/
 if (!empty($routesArray[0])) {
     $url = "relations?rel=modules,pages&type=module,page&linkTo=url_page&equalTo=" . $routesArray[0];
 
-    if ($routesArray[0] == "pos" || $routesArray[0] == "productos") {
-        $updateStock = true;
-    }
 } else {
     $url = "relations?rel=modules,pages&type=module,page&linkTo=order_page&equalTo=1";
 
     if ($_SESSION["admin"]->id_office_admin == 0 && !isset($_GET["offices"])) {
+        /*=============================================
+        Bootstrap loads at the end of the page, so a fixed 100ms wait was a
+        race: sometimes the modal opened, sometimes .modal was not a function
+        yet and the console filled with an error
+        =============================================*/
+
         echo '<script>
-        setTimeout(()=>{
+        window.addEventListener("load", function () {
             $("#myOffices").modal("show");
-        },100);
+        });
         </script>';
     }
-    $updateStock = true;
 }
 
 $method = "GET";
@@ -52,80 +41,16 @@ if ($modules->status == 200) {
 }
 
 /*=============================================
-Actualizar el stock
+Stock is kept by Inventory now: every sale writes a ledger movement and
+moves the balance inside the checkout transaction.
+
+This used to recompute it from scratch on every page load, asking for each
+product's purchases and sales one by one. Two cashiers selling at the same
+time simply overwrote each other, and it cost about 3 requests per product.
 =============================================*/
-if ($updateStock && $_SESSION["admin"]->id_office_admin > 0) {
-
-    /*=============================================
-    Traer los productos de la sucursal
-    =============================================*/
-    $url = "products?linkTo=id_office_product&equalTo=" . $_SESSION["admin"]->id_office_admin . "&select=id_product";
-    $method = "GET";
-    $fields = array();
-
-    $productsStock = CurlController::request($url, $method, $fields);
-
-    if ($productsStock->status == 200) {
-
-        $countStockProducts = 0;
-
-        foreach ($productsStock->results as $key => $value) {
-
-            /*=============================================
-            Traer total de compras
-            =============================================*/
-            $url = "purchases?linkTo=id_product_purchase&equalTo=" . $value->id_product . "&select=qty_purchase";
-            $purchases = CurlController::request($url, $method, $fields);
-
-            $totalPurchaseProduct = 0;
-
-            if ($purchases->status == 200) {
-                foreach ($purchases->results as $index => $item) {
-                    $totalPurchaseProduct += $item->qty_purchase;
-                }
-            }
-
-            /*=============================================
-            Traer total de ventas
-            =============================================*/
-            $url = "sales?linkTo=id_product_sale&equalTo=" . $value->id_product . "&select=qty_sale";
-            $sales = CurlController::request($url, $method, $fields);
-
-            $totalSaleProduct = 0;
-
-            if ($sales->status == 200) {
-                foreach ($sales->results as $index => $item) {
-                    $totalSaleProduct += $item->qty_sale;
-                }
-            }
-
-            /*=============================================
-            Calcular compras menos ventas
-            =============================================*/
-            $arrayStock[$value->id_product] = ($totalPurchaseProduct - $totalSaleProduct);
-            $countStockProducts++;
-
-            if ($countStockProducts == count($productsStock->results)) {
-
-                /*=============================================
-                Actualizar stock en base de datos
-                =============================================*/
-                foreach ($arrayStock as $key => $value) {
-                    $url = "products?id=" . $key . "&nameId=id_product&token=" . $_SESSION["admin"]->token_admin . "&table=admins&suffix=admin";
-                    $method = "PUT";
-                    $fields = array(
-                        "stock_product" => $value
-                    );
-                    $fields = http_build_query($fields);
-                    $updateStock = CurlController::request($url, $method, $fields);
-                }
-            }
-        }
-    }
-}
 
 /*=============================================
-Buscar orden iniciada
+Look for an open order
 =============================================*/
 $url = "orders?linkTo=id_admin_order,status_order,id_office_order,date_created_order&equalTo=" . $_SESSION["admin"]->id_admin . ",Pendiente," . $_SESSION["admin"]->id_office_admin . "," . date("Y-m-d");
 $method = "GET";
@@ -135,6 +60,21 @@ $order = CurlController::request($url, $method, $fields);
 
 if ($order->status == 200) {
     $order = $order->results[0];
+
+    /*=============================================
+    A draft is priced at today prices, not at the ones of the day
+    each product happened to be added
+    =============================================*/
+
+    require_once __DIR__ . "/../../../../lib/order.pricing.php";
+
+    OrderPricing::reprice((int) $order->id_order);
+
+    $order = CurlController::request(
+    	"orders?linkTo=id_order&equalTo=" . $order->id_order,
+    	"GET",
+    	array()
+    )->results[0];
 } else {
     $order = null;
 }
@@ -149,21 +89,21 @@ if ($order->status == 200) {
             <?php foreach ($modules as $key => $value): $module = $value ?>
 
                 <!--=========================================
-                Cuando el módulo es un breadcrumb
+                Breadcrumb module
                 ===========================================-->
                 <?php if ($module->type_module == "breadcrumbs"): ?>
                     <?php include "breadcrumbs/breadcrumbs.php" ?>
                 <?php endif ?>
 
                 <!--=========================================
-                Cuando el módulo es una métrica
+                Metric module
                 ===========================================-->
                 <?php if ($module->type_module == "metrics"): ?>
                     <?php include "metrics/metrics.php" ?>
                 <?php endif ?>
 
                 <!--=========================================
-                Cuando el módulo es un gráfico
+                Chart module
                 ===========================================-->
 
                 <?php if ($module->type_module == "graphics"): ?>
@@ -171,14 +111,14 @@ if ($order->status == 200) {
                 <?php endif ?>
 
                 <!--=========================================
-                Cuando el módulo es una tabla
+                Table module
                 ===========================================-->
                 <?php if ($module->type_module == "tables"): ?>
                     <?php include "tables/tables.php" ?>
                 <?php endif ?>
 
                 <!--=========================================
-                Cuando el módulo es personalizado
+                Custom module
                 ===========================================-->
                 <?php if ($module->type_module == "custom"): ?>
                     <?php include "custom/" . str_replace(" ", "_", $module->title_module) . "/" . str_replace(" ", "_", $module->title_module) . ".php" ?>
@@ -201,4 +141,4 @@ if ($order->status == 200) {
     <?php include "views/modules/modals/offices.php"; ?>
 <?php endif ?>
 
-<script src="/views/assets/js/pos/pos.js"></script>
+<script src="<?php echo View::asset('/views/assets/js/pos/pos.js') ?>"></script>

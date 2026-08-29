@@ -1,5 +1,5 @@
 /*=============================================
-Abrir ventana modal de páginas
+Open the pages modal
 =============================================*/
 
 $(document).on("click",".myPage",function(){
@@ -13,7 +13,7 @@ $(document).on("click",".myPage",function(){
 		if(page != undefined){
 
 			/*=============================================
-			Editar Página
+			Edit a page
 			=============================================*/
 
 			$("#title_page").before(`
@@ -41,7 +41,7 @@ $(document).on("click",".myPage",function(){
 })
 
 /*=============================================
-Cambiar orden de páginas
+Reorder pages
 =============================================*/
 
 $("#sortable").sortable({
@@ -62,7 +62,6 @@ $("#sortable").sortable({
 			var data = new FormData();
 			data.append("idPage",idPage);
 			data.append("index", index);
-			data.append("token", localStorage.getItem("tokenAdmin"));
 
 			$.ajax({
 
@@ -95,7 +94,7 @@ $("#sortable").sortable({
 })
 
 /*=============================================
-Eliminar una página
+Delete a page
 =============================================*/
 
 $(document).on("click",".deletePage",function(){
@@ -114,7 +113,6 @@ $(document).on("click",".deletePage",function(){
 			
 			var data = new FormData();
 			data.append("idPageDelete",idPage);
-			data.append("token", localStorage.getItem("tokenAdmin"));
 
 			$.ajax({
 
@@ -128,7 +126,8 @@ $(document).on("click",".deletePage",function(){
 					
 					if(response == 200){
 
-						fncSweetAlert("success","La página ha sido eliminada con éxito",setTimeout(()=>location.reload(),1250));
+						fncSweetAlert("success","La página ha sido eliminada con éxito", "");
+						setTimeout(()=>location.reload(),1250)
 					
 					}else{
 

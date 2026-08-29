@@ -1,7 +1,7 @@
 <?php
 
 /*=============================================
-Organizar los tipos de archivos
+Group the file types
 =============================================*/
 
 $url = "files?select=type_file";

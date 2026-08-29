@@ -1,10 +1,41 @@
-<?php 
+<?php
+
+require_once __DIR__ . "/../../lib/office.guard.php";
+
+require_once __DIR__ . "/../../lib/password.hasher.php";
+
+require_once __DIR__ . "/../../lib/password.policy.php";
+
+require_once __DIR__ . "/../../lib/view.php";
+
+require_once __DIR__ . "/../../lib/cash.session.php";
+
+require_once __DIR__ . "/../../lib/inventory.php";
 
 class DynamicController{
 
 	/*=============================================
-	Gestión de datos dinámicos
+	Dynamic data management
 	=============================================*/	
+
+	/*=============================================
+	The update path sends a query string and parse_str decodes it again,
+	so encoding there is transport. The create path sends an array that
+	nothing decodes, and encoding there is what stored Green+Nike+Fe
+	=============================================*/
+
+	private static function value($type, $value, $forQueryString){
+
+		$value = trim((string) $value);
+
+		// a raw date, or MySQL stores 0000-00-00
+		if (in_array($type, array("date", "datetime", "time", "timestamp"), true)) {
+
+			return $value;
+		}
+
+		return $forQueryString ? urlencode($value) : $value;
+	}
 
 	public function manage(){
 
@@ -19,14 +50,16 @@ class DynamicController{
 
 			$module = json_decode($_POST["module"]);
 
+			CashSession::stampDates($module->suffix_module, isset($_POST["idItem"]));
+
 			/*=============================================
-			Editar datos
+			Edit data
 			=============================================*/
 
 			if(isset($_POST["idItem"])){
 
 				/*=============================================
-				Actualizar datos
+				Update data
 				=============================================*/
 
 				$url = $module->title_module."?id=".base64_decode($_POST["idItem"])."&nameId=id_".$module->suffix_module."&token=".$_SESSION["admin"]->token_admin."&table=admins&suffix=admin";
@@ -36,9 +69,35 @@ class DynamicController{
 
 				foreach ($module->columns as $key => $value) {
 
-					if($value->type_column == "password" && !empty($_POST[$value->title_column])){
+					/*=============================================
+					A user tied to one branch may only write for that branch
+					=============================================*/
 
-						$fields.= $value->title_column."=".crypt(trim($_POST[$value->title_column]),'$2a$07$azybxcags23425sdg23sdfhsd$')."&";
+					if (strpos($value->title_column, "id_office_") === 0 && !OfficeGuard::canSwitch()) {
+
+						$_POST[$value->title_column] = OfficeGuard::current();
+					}
+
+					// stock is per branch and lives in its own table, not in this row
+					if($value->type_column == "stock"){
+
+						$stockValue = (int) ($_POST[$value->title_column] ?? 0);
+
+					}else if($value->type_column == "password" && !empty($_POST[$value->title_column])){
+
+						$failed = PasswordPolicy::check(trim($_POST[$value->title_column]));
+
+						if($failed !== []){
+
+							echo '<script>
+									fncMatPreloader("off");
+									fncSweetAlert("error", ' . View::js(PasswordPolicy::message($failed)) . ', "");
+								</script>';
+
+							return;
+						}
+
+						$fields.= $value->title_column."=".PasswordHasher::hash(trim($_POST[$value->title_column]))."&";
 
 					}else if($value->type_column == "email"){
 
@@ -46,7 +105,7 @@ class DynamicController{
 
 					}else{
 					
-						$fields.= $value->title_column."=".urlencode(trim($_POST[$value->title_column]))."&";
+						$fields.= $value->title_column."=".self::value($value->type_column, $_POST[$value->title_column], true)."&";
 
 					}
 					
@@ -59,6 +118,13 @@ class DynamicController{
 						$update = CurlController::request($url,$method,$fields);
 
 						if($update->status == 200){
+
+							// the stock the form carried belongs to the branch, not to the row
+							if(isset($stockValue)){
+
+								Inventory::setFor((int) base64_decode($_POST["idItem"]), (int) OfficeGuard::current(), $stockValue);
+							}
+
 
 							echo '
 
@@ -82,7 +148,7 @@ class DynamicController{
 			}else{
 		
 				/*=============================================
-				Crear datos
+				Create data
 				=============================================*/
 
 				$url = $module->title_module."?token=".$_SESSION["admin"]->token_admin."&table=admins&suffix=admin";
@@ -92,16 +158,42 @@ class DynamicController{
 
 				foreach ($module->columns as $key => $value) {
 
-					if($value->type_column == "password"){
+					/*=============================================
+					A user tied to one branch may only write for that branch
+					=============================================*/
 
-						$fields[$value->title_column] = crypt(trim($_POST[$value->title_column]),'$2a$07$azybxcags23425sdg23sdfhsd$');
+					if (strpos($value->title_column, "id_office_") === 0 && !OfficeGuard::canSwitch()) {
+
+						$_POST[$value->title_column] = OfficeGuard::current();
+					}
+
+					// stock is per branch and lives in its own table, not in this row
+					if($value->type_column == "stock"){
+
+						$stockValue = (int) ($_POST[$value->title_column] ?? 0);
+
+					}else if($value->type_column == "password"){
+
+						$failed = PasswordPolicy::check(trim($_POST[$value->title_column]));
+
+						if($failed !== []){
+
+							echo '<script>
+									fncMatPreloader("off");
+									fncSweetAlert("error", ' . View::js(PasswordPolicy::message($failed)) . ', "");
+								</script>';
+
+							return;
+						}
+
+						$fields[$value->title_column] = PasswordHasher::hash(trim($_POST[$value->title_column]));
 					
 					}else if($value->type_column == "email"){
 
 						$fields[$value->title_column] = trim($_POST[$value->title_column]);
 					}else{
 					
-						$fields[$value->title_column] = urlencode(trim($_POST[$value->title_column]));
+						$fields[$value->title_column] = self::value($value->type_column, $_POST[$value->title_column], false);
 
 					}
 					
@@ -114,6 +206,12 @@ class DynamicController{
 						$save = CurlController::request($url,$method,$fields);
 
 						if($save->status == 200){
+
+							if(isset($stockValue) && isset($save->results->lastId)){
+
+								Inventory::setFor((int) $save->results->lastId, (int) OfficeGuard::current(), $stockValue);
+							}
+
 
 							echo '
 

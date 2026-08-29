@@ -7,7 +7,7 @@ class PagesController{
 		if(isset($_POST["title_page"])){
 
 			/*=============================================
-			Editar Página
+			Edit a page
 			=============================================*/
 
 			if(isset($_POST["id_page"])){
@@ -38,7 +38,7 @@ class PagesController{
 			}else{
 
 				/*=============================================
-				Validar que la Página no exista
+				The page must not exist yet
 				=============================================*/
 
 				$url = "pages?linkTo=title_page,url_page&equalTo=".trim($_POST["title_page"]).",".trim($_POST["url_page"]);
@@ -66,7 +66,7 @@ class PagesController{
 				}
 
 				/*=============================================
-				Crear Página
+				Create a page
 				=============================================*/
 
 				$url = "pages?token=".$_SESSION["admin"]->token_admin."&table=admins&suffix=admin";
@@ -85,13 +85,13 @@ class PagesController{
 				if($create->status == 200){
 
 					/*=============================================
-					Crear Página personalizable
+					Create a custom page
 					=============================================*/
 
 					if($fields["type_page"] == "custom"){
 
 						/*=============================================
-						Creamos carpeta de página personalizable
+						Create the custom page folder
 						=============================================*/
 
 						$directory = DIR."/views/pages/custom/".$fields["url_page"];
@@ -102,7 +102,7 @@ class PagesController{
 						}
 
 						/*=============================================
-						Copiamos el archivo custom con el nuevo nombre
+						Copy the custom file under the new name
 						=============================================*/	
 
 						$from = DIR."/views/pages/custom/custom.php";

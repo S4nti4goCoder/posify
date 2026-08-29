@@ -1,6 +1,18 @@
-<?php if ($module->columns[$i]->type_column == "json"): ?>
+<?php
 
-	<?php if (!empty($data) && $data[$module->columns[$i]->title_column] != null): $arrayObj = new ArrayObject(json_decode(urldecode($data[$module->columns[$i]->title_column])));?>
+require_once __DIR__ . "/../../../../../../../../lib/view.php";
+
+/**
+ * Included from blocks/blocks.php, which defines the variables below.
+ *
+ * @var object $module Table module being rendered
+ * @var int    $i      Index of the column inside $module->columns
+ * @var array  $data   The record when editing, empty when creating
+ */
+
+if ($module->columns[$i]->type_column == "json"): ?>
+
+	<?php if (!empty($data) && $data[$module->columns[$i]->title_column] != null): $arrayObj = new ArrayObject(json_decode($data[$module->columns[$i]->title_column]));?>
 
 		<?php if (!empty($arrayObj) && $arrayObj->count() > 0): ?>
 
@@ -197,7 +209,7 @@
 
 	<?php if (!empty($data)): ?>
 
-		<input type="hidden" name="<?php echo $module->columns[$i]->title_column ?>" id="<?php echo $module->columns[$i]->title_column ?>" value='<?php echo urldecode($data[$module->columns[$i]->title_column]) ?>'>
+		<input type="hidden" name="<?php echo $module->columns[$i]->title_column ?>" id="<?php echo $module->columns[$i]->title_column ?>" value='<?php echo View::text($data[$module->columns[$i]->title_column]) ?>'>
 
 	<?php else: ?>
 

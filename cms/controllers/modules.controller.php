@@ -6,7 +6,7 @@ require_once "controllers/template.controller.php";
 class ModulesController{
 
 	/*=============================================
-	Gestionar un módulo
+	Manage a module
 	=============================================*/
 
 	public function manageModule(){
@@ -21,7 +21,7 @@ class ModulesController{
 			</script>';
 
 			/*=============================================
-			Editando Módulo
+			Editing a module
 			=============================================*/
 
 			if(isset($_POST["id_module"])){
@@ -38,13 +38,13 @@ class ModulesController{
 				if($updateModule->status == 200){
 
 					/*=============================================
-					Editando Módulo de tipo table
+					Editing a table module
 					=============================================*/
 
 					if($_POST["type_module"] == "tables"){
 
 						/*=============================================
-						Editar columnas
+						Edit columns
 						=============================================*/
 
 						$countColumns = 0;
@@ -61,7 +61,7 @@ class ModulesController{
 									$type = TemplateController::typeColumn($_POST["type_column_".$value]);
 
 									/*=============================================
-									Actualizar la tabla columnas
+									Update the columns table
 									=============================================*/
 
 									if($_POST["id_column_".$value] > 0){
@@ -75,7 +75,7 @@ class ModulesController{
 										if($updateColumn->status == 200){
 										
 											/*=============================================
-											Editar columnas en MySQL
+											Edit the columns in MySQL
 											=============================================*/
 
 											$sqlUpdateColumn = "ALTER TABLE ".$title_module." CHANGE ".$_POST["original_title_column_".$value]." ".str_replace(" ","_",$_POST["title_column_".$value])." ".$type;
@@ -91,7 +91,7 @@ class ModulesController{
 										}
 
 									/*=============================================
-									Creando nuevas columnas
+									Creating new columns
 									=============================================*/
 
 									}else{
@@ -112,7 +112,7 @@ class ModulesController{
 										if($createColumn->status == 200){
 
 											/*=============================================
-											Crear columnas en BD MySQL
+											Create the columns in MySQL
 											=============================================*/
 
 											if($key == 0){
@@ -145,7 +145,7 @@ class ModulesController{
 						}
 
 						/*=============================================
-						Eliminar columnas
+						Delete columns
 						=============================================*/
 
 						$countDeleteColumns = 0;
@@ -160,7 +160,7 @@ class ModulesController{
 								foreach ($deleteColumns as $key => $value) {
 
 									/*=============================================
-									Capturar el nombre de la columna 
+									Read the column name
 									=============================================*/
 
 									$url = "columns?linkTo=id_column&equalTo=".$value."&select=title_column";
@@ -170,7 +170,7 @@ class ModulesController{
 									$column = CurlController::request($url,$method,$fields);
 
 									/*=============================================
-									Eliminar de la tabla columnas
+									Delete from the columns table
 									=============================================*/
 
 									$url = "columns?id=".$value."&nameId=id_column&token=".$_SESSION["admin"]->token_admin."&table=admins&suffix=admin";
@@ -182,7 +182,7 @@ class ModulesController{
 									if($deleteColumn->status == 200){
 
 										/*=============================================
-										Eliminar columna en BD de MySQL
+										Drop the column in MySQL
 										=============================================*/
 
 										$sqlDeleteColumn = "ALTER TABLE $title_module DROP ".$column->results[0]->title_column;
@@ -206,7 +206,7 @@ class ModulesController{
 						}
 
 						/*=============================================
-						Validar que termino el proceso SQL
+						The SQL step must have finished
 						=============================================*/	
 
 						if($countDeleteColumns == count($deleteColumns) && count($indexColumns) == $countColumns){
@@ -245,13 +245,13 @@ class ModulesController{
 				}
 
 			/*=============================================
-			Creando módulo
+			Creating a module
 			=============================================*/
 
 			}else{
 
 				/*=============================================
-				Validar primero que el módulo no exista
+				The module must not exist yet
 				=============================================*/
 
 				$url = "modules?linkTo=title_module,type_module&equalTo=".urlencode($_POST["title_module"]).",".$_POST["type_module"];
@@ -279,7 +279,7 @@ class ModulesController{
 				}
 
 				/*=============================================
-				Validar que la tabla en BD no exista
+				The table must not exist yet
 				=============================================*/
 
 				if($_POST["type_module"] == "tables"){
@@ -307,7 +307,7 @@ class ModulesController{
 				}
 
 				/*=============================================
-				Creación de los datos del módulo
+				Build the module data
 				=============================================*/
 
 				$url = "modules?token=".$_SESSION["admin"]->token_admin."&table=admins&suffix=admin";
@@ -328,13 +328,13 @@ class ModulesController{
 				if($createModule->status == 200){
 
 					/*=============================================
-					El módulo que se creó es tabla
+					The module created is a table
 					=============================================*/
 
 					if($_POST["type_module"] == "tables"){
 
 						/*=============================================
-						Creamos la tabla en BD MySQL
+						Create the table in MySQL
 						=============================================*/
 
 						$sqlNewTable = "CREATE TABLE ".str_replace(" ","_",$fields["title_module"])." ( 
@@ -359,7 +359,7 @@ class ModulesController{
 									foreach ($indexColumns as $key => $value) {
 
 										/*=============================================
-										Crear nuevas columnas
+										Create new columns
 										=============================================*/
 
 										$url = "columns?token=".$_SESSION["admin"]->token_admin."&table=admins&suffix=admin";
@@ -380,7 +380,7 @@ class ModulesController{
 											$type = TemplateController::typeColumn($_POST["type_column_".$value]);
 
 											/*=============================================
-											Crear columnas en BD MySQL
+											Create the columns in MySQL
 											=============================================*/
 
 											if($key == 0){
@@ -425,13 +425,13 @@ class ModulesController{
 						}
 					
 					/*=============================================
-					El módulo que se creó es tabla
+					The module created is a table
 					=============================================*/
 
 					}else if($_POST["type_module"] == "custom"){
 
 						/*=============================================
-						Creamos carpeta de módulo personalizable
+						Create the custom module folder
 						=============================================*/
 
 						$directory = DIR."/views/pages/dynamic/custom/".str_replace(" ","_",$fields["title_module"]);
@@ -442,7 +442,7 @@ class ModulesController{
 						}
 
 						/*=============================================
-						Copiamos el archivo custom con el nuevo nombre
+						Copy the custom file under the new name
 						=============================================*/	
 
 						$from = DIR."/views/pages/dynamic/custom/custom.php";

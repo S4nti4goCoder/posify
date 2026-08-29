@@ -1,5 +1,5 @@
 /*=============================================
-Validación de formularios desde bootstrap
+Bootstrap form validation
 =============================================*/
 
 // Disable form submissions if there are invalid fields
@@ -22,7 +22,7 @@ Validación de formularios desde bootstrap
 })();
 
 /*=============================================
-Activar select 2
+Enable select2
 =============================================*/
 
 if($('.select2').length > 0){
@@ -35,7 +35,7 @@ if($('.select2').length > 0){
 }
 
 /*=============================================
-Activar Tags Input
+Enable Tags Input
 =============================================*/
 
 if($('.tags-input').length > 0){
@@ -45,13 +45,13 @@ if($('.tags-input').length > 0){
 }
 
 /*=============================================
-Activar datetimepicker
+Enable the datetimepicker
 =============================================*/
 
 if($('.datepicker').length > 0){
 
   /*=============================================
-  Activar datetimepicker para fechas
+  Enable the datetimepicker for dates
   =============================================*/
 
   $('.datepicker').datetimepicker({
@@ -64,7 +64,7 @@ if($('.datepicker').length > 0){
 if($('.timepicker').length > 0){
 
   /*=============================================
-  Activar datetimepicker para tiempo
+  Enable the datetimepicker for time
   =============================================*/
 
   $('.timepicker').datetimepicker({
@@ -77,7 +77,7 @@ if($('.timepicker').length > 0){
 if($('.datetimepicker').length > 0){
 
   /*=============================================
-  Activar datetimepicker para fecha y tiempo
+  Enable the datetimepicker for date and time
   =============================================*/
 
   $('.datetimepicker').datetimepicker({
@@ -117,7 +117,7 @@ if($('.summernote').length > 0){
 }
 
 /*=============================================
-Adicionar iconos al toolbar de summernote
+Add icons to the summernote toolbar
 =============================================*/
 if($(".note-toolbar").length > 0){
 
@@ -130,7 +130,7 @@ if($(".note-toolbar").length > 0){
 }
 
 /*=============================================
-Ajustes al modal de Summernote
+Summernote modal tweaks
 =============================================*/
 
 if($(".note-modal[aria-label='Insert Image']").length > 0){
@@ -147,7 +147,7 @@ if($(".note-modal[aria-label='Insert Video']").length > 0){
 }
 
 /*=============================================
-Validar campos de formularios
+Validate the form fields
 =============================================*/
 
 function validateJS(event, type){
@@ -177,11 +177,11 @@ function validateJS(event, type){
 }
 
 /*=============================================
-Función para recordar email en el login
+Remember the email on the login form
 =============================================*/
 
 function rememberEmail(event){
-  
+
   if(event.target.checked){
 
     localStorage.setItem("emailRemember", $("#email_admin_login").val());
@@ -191,13 +191,30 @@ function rememberEmail(event){
 
     localStorage.removeItem("emailRemember");
     localStorage.removeItem("checkRemember");
-  
+
   }
 
 }
 
 /*=============================================
-Capturar email login 
+Ticking the box only stored whatever was typed at that moment, so signing
+in later with a different address kept showing the old one. Store it on
+submit as well, which is when we actually know the address being used.
+=============================================*/
+
+$(document).on("submit", "form", function(){
+
+  if($("#email_admin_login").length && $("#remember").is(":checked")){
+
+    localStorage.setItem("emailRemember", $("#email_admin_login").val());
+    localStorage.setItem("checkRemember", true);
+
+  }
+
+});
+
+/*=============================================
+Read the login email
 =============================================*/
 
 function rememberLogin(){
@@ -219,7 +236,7 @@ function rememberLogin(){
 rememberLogin();
 
 /*=============================================
-Función para ver contraseña
+Reveal the password
 =============================================*/
 
 $(document).on("click", ".viewPass", function(){

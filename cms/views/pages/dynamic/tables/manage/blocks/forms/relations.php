@@ -1,9 +1,19 @@
-<?php if ($module->columns[$i]->type_column == "relations"): ?>
+<?php
+
+/**
+ * Included from blocks/blocks.php, which defines the variables below.
+ *
+ * @var object $module Table module being rendered
+ * @var int    $i      Index of the column inside $module->columns
+ * @var array  $data   The record when editing, empty when creating
+ */
+
+if ($module->columns[$i]->type_column == "relations"): ?>
 
 	<?php 
 
 	/*=============================================
-	Traemos todas las tablas
+	Read every table
 	=============================================*/
 
 	require_once "controllers/install.controller.php";
@@ -67,7 +77,31 @@
 
 			<?php foreach ($columnsTable as $index => $item): ?>
 
-				<option value="<?php echo json_decode(json_encode($item),true)[array_keys((array)$item)[0]] ?>" <?php if (!empty($data) && json_decode(json_encode($item),true)[array_keys((array)$item)[0]] == $data[$module->columns[$i]->title_column]): ?> selected <?php endif ?>><?php echo json_decode(json_encode($item),true)[array_keys((array)$item)[0]] ?> - <?php echo urldecode(json_decode(json_encode($item),true)[array_keys((array)$item)[1]]) ?></option>
+				<?php
+
+				$row         = json_decode(json_encode($item), true);
+				$optionValue = $row[array_keys((array) $item)[0]];
+				$optionLabel = $row[array_keys((array) $item)[1]];
+
+				/*=============================================
+				When editing, keep the stored value. When creating a branch
+				column, start on the branch being worked in instead of on
+				whichever branch happens to come first in the list.
+				=============================================*/
+
+				if (!empty($data)) {
+
+					$isSelected = $optionValue == $data[$module->columns[$i]->title_column];
+
+				} else {
+
+					$isSelected = strpos($module->columns[$i]->title_column, "id_office_") === 0
+						&& (int) $optionValue === (int) OfficeGuard::current();
+				}
+
+				?>
+
+				<option value="<?php echo $optionValue ?>" <?php if ($isSelected): ?> selected <?php endif ?>><?php echo $optionValue ?> - <?php echo $optionLabel ?></option>
 
 			<?php endforeach ?>
 

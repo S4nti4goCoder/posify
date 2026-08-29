@@ -1,5 +1,5 @@
 /*=============================================
-Interfaz Dashboard
+Dashboard interface
 =============================================*/
 var menuToggle = document.getElementById("menu-toggle");
 var sidebar = document.getElementById("sidebar-wrapper");
@@ -8,7 +8,7 @@ var btnPages = $(".btnPages");
 var toogle = 0;
 
 /*=============================================
-Agrega un listener al botón para abrir/cerrar el menú
+Bind the button that opens and closes the menu
 =============================================*/
 menuToggle.addEventListener("click", function () {
   var isMobile = window.innerWidth <= 768;
@@ -40,21 +40,21 @@ menuToggle.addEventListener("click", function () {
 });
 
 /*=============================================
-Cierra el menú flotante si haces clic en cualquier parte fuera del menú
+Close the floating menu on a click anywhere outside it
 =============================================*/
 document.addEventListener("click", function (event) {
   var isClickInsideMenu =
     sidebar.contains(event.target) || menuToggle.contains(event.target);
   var isMobile = window.innerWidth <= 768;
 
-  // Si haces clic fuera del menú y el menú está visible en móvil, lo cierra
+  // Closes the menu on a click outside it while on mobile
   if (!isClickInsideMenu && sidebar.classList.contains("show") && isMobile) {
     sidebar.classList.remove("show");
   }
 });
 
 /*=============================================
-Hacer la tabla responsiva al cambio de ancho del navegador
+Keep the table responsive as the window resizes
 =============================================*/
 $(window).resize(function () {
   updateWidth();
@@ -75,7 +75,7 @@ function updateWidth() {
 updateWidth();
 
 /*=============================================
-Limpiar el campo de icono
+Clear the icon field
 =============================================*/
 $(document).on("change", ".cleanIcon", function () {
   if ($(this).val().split('"').length > 0) {
@@ -86,8 +86,27 @@ $(document).on("change", ".cleanIcon", function () {
 });
 
 /*=============================================
-Formato de precio
+Price format, Colombian pesos
 =============================================*/
 function money(number) {
-  return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  var pesos = Math.round(Number(number) || 0);
+  var sign = pesos < 0 ? "-" : "";
+
+  return sign + Math.abs(pesos).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
+
+/*=============================================
+Confirm before logging out
+
+A cashier with an order open should not lose it to a stray click. The rest
+of the system already asks before destructive actions
+=============================================*/
+$(document).on("click", 'a[href="/logout"]', function (event) {
+  event.preventDefault();
+
+  fncSweetAlert("confirm", "¿Seguro que quieres cerrar sesión?", "").then(function (ok) {
+    if (ok) {
+      window.location = "/logout";
+    }
+  });
+});

@@ -5,6 +5,9 @@
 
       <form method="POST" class="needs-validation" novalidate>
 
+		<?php echo CsrfGuard::field() ?>
+
+
         <!-- Modal Header -->
         <div class="modal-header">
           <h4 class="modal-title text-capitalize">Perfil <?php echo $_SESSION["admin"]->rol_admin ?></h4>
@@ -46,6 +49,8 @@
             placeholder="*********"
             >
 
+            <?php $passwordRulesFor = "password_admin"; include __DIR__ . "/../password.rules.php" ?>
+
             <div class="valid-feedback">Válido.</div>
             <div class="invalid-feedback">Campo inválido.</div>
 
@@ -71,36 +76,11 @@
 
             </div>
 
-            <div class="form-group mb-3">
-
-              <label for="symbol_admin">Símbolo del Dashboard <sup>*</sup></label>
-
-              <input 
-              type="text"
-              class="form-control rounded"
-              id="symbol_admin"
-              name="symbol_admin"
-              value="<?php echo htmlspecialchars($admin->symbol_admin) ?>" 
-              required
-              >
-
-              <div class="valid-feedback">Válido.</div>
-              <div class="invalid-feedback">Campo inválido.</div>
-
-            </div>
-
-            <div class="form-group mb-3">
-
-              <label for="font_admin">Tipografía del Dashboard</label>
-
-              <textarea 
-              class="form-control rounded"
-              id="font_admin"
-              name="font_admin"
-              value="<?php echo htmlspecialchars($admin->font_admin) ?>"
-              ><?php echo htmlspecialchars($admin->font_admin) ?></textarea>
-
-            </div>
+            <?php
+            $themeSymbol = $admin->symbol_admin;
+            $themeFont   = $admin->font_admin;
+            include __DIR__ . "/../theme.fields.php";
+            ?>
 
             <div class="form-group mb-3">
 
