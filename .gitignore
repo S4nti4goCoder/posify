@@ -1,0 +1,17 @@
+# Local configuration and secrets — never commit
+/config/config.local.php
+
+# Runtime logs
+php_error_log
+*.log
+
+# OS and editor noise
+Thumbs.db
+Desktop.ini
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Capturas de pantalla: material de trabajo, no van al repositorio
+/screenshots/
