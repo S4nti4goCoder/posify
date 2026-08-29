@@ -1,0 +1,8 @@
+# Second layer. Even if something ever writes a script here, Apache must not
+# run it: this folder holds uploads, never code.
+
+php_flag engine off
+
+<FilesMatch "\.(php|php3|php4|php5|php7|phtml|phar|pl|py|cgi|asp|aspx|sh|shtml)$">
+    Require all denied
+</FilesMatch>

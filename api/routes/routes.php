@@ -1,5 +1,6 @@
 <?php
 
+require_once "models/request.context.php";
 require_once "models/connection.php";
 require_once "controllers/get.controller.php";
 
@@ -7,7 +8,7 @@ $routesArray = explode("/", $_SERVER['REQUEST_URI']);
 $routesArray = array_filter($routesArray);
 
 /*=============================================
-Cuando no se hace ninguna petición a la API
+No request was made to the API
 =============================================*/
 
 if(count($routesArray) == 0){
@@ -26,7 +27,7 @@ if(count($routesArray) == 0){
 }
 
 /*=============================================
-Cuando si se hace una petición a la API
+A request was made to the API
 =============================================*/
 
 if(count($routesArray) == 1 && isset($_SERVER['REQUEST_METHOD'])){
@@ -34,10 +35,10 @@ if(count($routesArray) == 1 && isset($_SERVER['REQUEST_METHOD'])){
 	$table = explode("?", $routesArray[1])[0];
 
 	/*=============================================
-	Validar llave secreta
+	Check the secret key
 	=============================================*/
 
-	if(!isset(getallheaders()["Authorization"]) || getallheaders()["Authorization"] != Connection::apikey()){
+	if(RequestContext::authorization() !== Connection::apikey()){
 
 		if(in_array($table, Connection::publicAccess()) == 0){
 	
@@ -54,7 +55,7 @@ if(count($routesArray) == 1 && isset($_SERVER['REQUEST_METHOD'])){
 		}else{
 
 			/*=============================================
-			Acceso público
+			Public access
 			=============================================*/
 			$response = new GetController();
 			$response -> getData($table, "*",null,null,null,null);
@@ -65,7 +66,7 @@ if(count($routesArray) == 1 && isset($_SERVER['REQUEST_METHOD'])){
 	}
 
 	/*=============================================
-	Peticiones GET
+	GET requests
 	=============================================*/
 
 	if($_SERVER['REQUEST_METHOD'] == "GET"){
@@ -75,7 +76,7 @@ if(count($routesArray) == 1 && isset($_SERVER['REQUEST_METHOD'])){
 	}
 
 	/*=============================================
-	Peticiones POST
+	POST requests
 	=============================================*/
 
 	if($_SERVER['REQUEST_METHOD'] == "POST"){
@@ -85,7 +86,7 @@ if(count($routesArray) == 1 && isset($_SERVER['REQUEST_METHOD'])){
 	}
 
 	/*=============================================
-	Peticiones PUT
+	PUT requests
 	=============================================*/
 
 	if($_SERVER['REQUEST_METHOD'] == "PUT"){
@@ -95,7 +96,7 @@ if(count($routesArray) == 1 && isset($_SERVER['REQUEST_METHOD'])){
 	}
 
 	/*=============================================
-	Peticiones DELETE
+	DELETE requests
 	=============================================*/
 
 	if($_SERVER['REQUEST_METHOD'] == "DELETE"){

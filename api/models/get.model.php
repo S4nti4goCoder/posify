@@ -2,819 +2,333 @@
 
 require_once "connection.php";
 
-class GetModel{
+/**
+ * Read side of the generic query builder.
+ *
+ * SchemaGuard checks every identifier against the catalog before it is
+ * interpolated. Values are bound. A method returns null when an identifier
+ * does not exist, which the controllers turn into a 404.
+ */
+class GetModel
+{
 
 	/*=============================================
-	Peticiones GET sin filtro
+	GET without filter
 	=============================================*/
 
-	static public function getData($table, $select,$orderBy,$orderMode,$startAt,$endAt){
+	static public function getData($table, $select, $orderBy, $orderMode, $startAt, $endAt)
+	{
+		$tables = [$table];
 
-		/*=============================================
-		Validar existencia de la tabla y de las columnas
-		=============================================*/
+		$safeSelect = SchemaGuard::safeSelect($tables, $select);
+		$order      = SchemaGuard::safeOrderBy($tables, $orderBy, $orderMode);
+		$limit      = SchemaGuard::safeLimit($startAt, $endAt);
 
-		$selectArray = explode(",",$select);
-		
-		if(empty(Connection::getColumnsData($table, $selectArray))){
-			
-			return null;
-		
-		}
-
-		/*=============================================
-		Sin ordenar y sin limitar datos
-		=============================================*/
-
-		$sql = "SELECT $select FROM $table";
-
-		/*=============================================
-		Ordenar datos sin limites
-		=============================================*/
-
-		if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
-
-			$sql = "SELECT $select FROM $table ORDER BY $orderBy $orderMode";
-
-		}
-
-		/*=============================================
-		Ordenar y limitar datos
-		=============================================*/
-
-		if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-			$sql = "SELECT $select FROM $table ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt";
-
-		}
-
-		/*=============================================
-		Limitar datos sin ordenar
-		=============================================*/
-
-		if($orderBy == null && $orderMode == null && $startAt != null && $endAt != null){
-
-			$sql = "SELECT $select FROM $table LIMIT $startAt, $endAt";
-
-		}
-
-		$stmt = Connection::connect()->prepare($sql);
-
-		try{
-
-			$stmt -> execute();
-
-		}catch(PDOException $Exception){
+		if ($safeSelect === null || $order === null || $limit === null) {
 
 			return null;
-		
 		}
 
-		return $stmt -> fetchAll(PDO::FETCH_CLASS);
-
+		return GetModel::run("SELECT $safeSelect FROM $table" . $order . $limit, []);
 	}
 
 	/*=============================================
-	Peticiones GET con filtro
+	GET with filter
 	=============================================*/
-	
-	static public function getDataFilter($table, $select, $linkTo, $equalTo, $orderBy,$orderMode,$startAt,$endAt){
 
-		/*=============================================
-		Validar existencia de la tabla y de las columnas
-		=============================================*/
+	static public function getDataFilter($table, $select, $linkTo, $equalTo, $orderBy, $orderMode, $startAt, $endAt)
+	{
+		$tables = [$table];
+		$params = [];
 
-		$linkToArray = explode(",",$linkTo);
-		$selectArray = explode(",",$select);
+		$safeSelect = SchemaGuard::safeSelect($tables, $select);
+		$where      = GetModel::filterClause($tables, $linkTo, $equalTo, $params);
+		$order      = SchemaGuard::safeOrderBy($tables, $orderBy, $orderMode);
+		$limit      = SchemaGuard::safeLimit($startAt, $endAt);
 
-		foreach ($linkToArray  as $key => $value) {
-			array_push($selectArray, $value);
-		}
-
-		$selectArray = array_unique($selectArray);
-
-
-		if(empty(Connection::getColumnsData($table,$selectArray ))){	
-			
-			return null;
-
-		}
-		
-		$equalToArray = explode(",",$equalTo);
-		$linkToText = "";
-
-		if(count($linkToArray)>1){
-
-			foreach ($linkToArray as $key => $value) {
-				
-				if($key > 0){
-
-					$linkToText .= "AND ".$value." = :".$value." ";
-				}
-			}
-
-		}
-
-		/*=============================================
-		Sin ordenar y sin limitar datos
-		=============================================*/
-
-		$sql = "SELECT $select FROM $table WHERE $linkToArray[0] = :$linkToArray[0] $linkToText";
-
-		/*=============================================
-		Ordenar datos sin limites
-		=============================================*/
-
-		if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
-
-			$sql = "SELECT $select FROM $table WHERE $linkToArray[0] = :$linkToArray[0] $linkToText ORDER BY $orderBy $orderMode";
-
-		}
-
-		/*=============================================
-		Ordenar y limitar datos
-		=============================================*/
-
-		if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-			$sql = "SELECT $select FROM $table WHERE $linkToArray[0] = :$linkToArray[0] $linkToText ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt";
-
-		}
-
-		/*=============================================
-		Limitar datos sin ordenar
-		=============================================*/
-
-		if($orderBy == null && $orderMode == null && $startAt != null && $endAt != null){
-
-			$sql = "SELECT $select FROM $table WHERE $linkToArray[0] = :$linkToArray[0] $linkToText LIMIT $startAt, $endAt";
-
-		}
-
-		$stmt = Connection::connect()->prepare($sql);
-
-		foreach ($linkToArray as $key => $value) {
-			
-			$stmt -> bindParam(":".$value, $equalToArray[$key], PDO::PARAM_STR);
-
-		}
-
-		try{
-
-			$stmt -> execute();
-
-		}catch(PDOException $Exception){
+		if ($safeSelect === null || $where === null || $order === null || $limit === null) {
 
 			return null;
-		
 		}
 
-		return $stmt -> fetchAll(PDO::FETCH_CLASS);
-
+		return GetModel::run("SELECT $safeSelect FROM $table" . $where . $order . $limit, $params);
 	}
 
 	/*=============================================
-	Peticiones GET sin filtro entre tablas relacionadas
+	GET across related tables
 	=============================================*/
 
-	static public function getRelData($rel, $type, $select, $orderBy,$orderMode,$startAt,$endAt){
+	static public function getRelData($rel, $type, $select, $orderBy, $orderMode, $startAt, $endAt)
+	{
+		$tables = array_map("trim", explode(",", (string) $rel));
+		$types  = array_map("trim", explode(",", (string) $type));
 
-		/*=============================================
-		Validar existencia de las columnas
-		=============================================*/
-	
-		$relArray = explode(",", $rel);
-		$typeArray = explode(",", $type);
-		$innerJoinText = "";
+		$joins      = SchemaGuard::safeJoins($tables, $types);
+		$safeSelect = SchemaGuard::safeSelect($tables, $select);
+		$order      = SchemaGuard::safeOrderBy($tables, $orderBy, $orderMode);
+		$limit      = SchemaGuard::safeLimit($startAt, $endAt);
 
-		if(count($relArray)>1){
+		if ($joins === null || $safeSelect === null || $order === null || $limit === null) {
 
-			foreach ($relArray as $key => $value) {
+			return null;
+		}
 
-				/*=============================================
-				Validar existencia de la tabla y de las columnas
-				=============================================*/
-				
-				if(empty(Connection::getColumnsData($value,["*"]))){
+		return GetModel::run("SELECT $safeSelect FROM $tables[0] $joins" . $order . $limit, []);
+	}
 
-					return null;
+	/*=============================================
+	GET across related tables, with filter
+	=============================================*/
 
-				}
-				
-				if($key > 0){
+	static public function getRelDataFilter($rel, $type, $select, $linkTo, $equalTo, $orderBy, $orderMode, $startAt, $endAt)
+	{
+		$tables = array_map("trim", explode(",", (string) $rel));
+		$types  = array_map("trim", explode(",", (string) $type));
+		$params = [];
 
-					$innerJoinText .= "INNER JOIN ".$value." ON ".$relArray[0].".id_".$typeArray[$key]."_".$typeArray[0] ." = ".$value.".id_".$typeArray[$key]." ";
-				}
-			}
+		$joins      = SchemaGuard::safeJoins($tables, $types);
+		$safeSelect = SchemaGuard::safeSelect($tables, $select);
+		$where      = GetModel::filterClause($tables, $linkTo, $equalTo, $params);
+		$order      = SchemaGuard::safeOrderBy($tables, $orderBy, $orderMode);
+		$limit      = SchemaGuard::safeLimit($startAt, $endAt);
 
+		if ($joins === null || $safeSelect === null || $where === null || $order === null || $limit === null) {
 
-			/*=============================================
-			Sin ordenar y sin limitar datos
-			=============================================*/
+			return null;
+		}
 
-			$sql = "SELECT $select FROM $relArray[0] $innerJoinText";
+		return GetModel::run("SELECT $safeSelect FROM $tables[0] $joins" . $where . $order . $limit, $params);
+	}
 
-			/*=============================================
-			Ordenar datos sin limites
-			=============================================*/
+	/*=============================================
+	GET for the search box
+	=============================================*/
 
-			if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
+	static public function getDataSearch($table, $select, $linkTo, $search, $orderBy, $orderMode, $startAt, $endAt)
+	{
+		$tables = [$table];
+		$params = [];
 
-				$sql = "SELECT $select FROM $relArray[0] $innerJoinText ORDER BY $orderBy $orderMode";
+		$safeSelect = SchemaGuard::safeSelect($tables, $select);
+		$where      = GetModel::searchClause($tables, $linkTo, $search, $params);
+		$order      = SchemaGuard::safeOrderBy($tables, $orderBy, $orderMode);
+		$limit      = SchemaGuard::safeLimit($startAt, $endAt);
 
-			}
+		if ($safeSelect === null || $where === null || $order === null || $limit === null) {
 
-			/*=============================================
-			Ordenar y limitar datos
-			=============================================*/
+			return null;
+		}
 
-			if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
+		return GetModel::run("SELECT $safeSelect FROM $table" . $where . $order . $limit, $params);
+	}
 
-				$sql = "SELECT $select FROM $relArray[0] $innerJoinText ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt";
+	/*=============================================
+	GET for the search box, across related tables
+	=============================================*/
 
-			}
+	static public function getRelDataSearch($rel, $type, $select, $linkTo, $search, $orderBy, $orderMode, $startAt, $endAt)
+	{
+		$tables = array_map("trim", explode(",", (string) $rel));
+		$types  = array_map("trim", explode(",", (string) $type));
+		$params = [];
 
-			/*=============================================
-			Limitar datos sin ordenar
-			=============================================*/
+		$joins      = SchemaGuard::safeJoins($tables, $types);
+		$safeSelect = SchemaGuard::safeSelect($tables, $select);
+		$where      = GetModel::searchClause($tables, $linkTo, $search, $params);
+		$order      = SchemaGuard::safeOrderBy($tables, $orderBy, $orderMode);
+		$limit      = SchemaGuard::safeLimit($startAt, $endAt);
 
-			if($orderBy == null && $orderMode == null && $startAt != null && $endAt != null){
+		if ($joins === null || $safeSelect === null || $where === null || $order === null || $limit === null) {
 
-				$sql = "SELECT $select FROM $relArray[0] $innerJoinText LIMIT $startAt, $endAt";
+			return null;
+		}
 
-			}
+		return GetModel::run("SELECT $safeSelect FROM $tables[0] $joins" . $where . $order . $limit, $params);
+	}
 
-			$stmt = Connection::connect()->prepare($sql);
+	/*=============================================
+	GET by range
+	=============================================*/
 
-			try{
+	static public function getDataRange($table, $select, $linkTo, $between1, $between2, $orderBy, $orderMode, $startAt, $endAt, $filterTo, $inTo)
+	{
+		$tables = [$table];
+		$params = [];
 
-				$stmt -> execute();
+		$safeSelect = SchemaGuard::safeSelect($tables, $select);
+		$where      = GetModel::rangeClause($tables, $linkTo, $between1, $between2, $filterTo, $inTo, $params);
+		$order      = SchemaGuard::safeOrderBy($tables, $orderBy, $orderMode);
+		$limit      = SchemaGuard::safeLimit($startAt, $endAt);
 
-			}catch(PDOException $Exception){
+		if ($safeSelect === null || $where === null || $order === null || $limit === null) {
+
+			return null;
+		}
+
+		return GetModel::run("SELECT $safeSelect FROM $table" . $where . $order . $limit, $params);
+	}
+
+	/*=============================================
+	GET by range, across related tables
+	=============================================*/
+
+	static public function getRelDataRange($rel, $type, $select, $linkTo, $between1, $between2, $orderBy, $orderMode, $startAt, $endAt, $filterTo, $inTo)
+	{
+		$tables = array_map("trim", explode(",", (string) $rel));
+		$types  = array_map("trim", explode(",", (string) $type));
+		$params = [];
+
+		$joins      = SchemaGuard::safeJoins($tables, $types);
+		$safeSelect = SchemaGuard::safeSelect($tables, $select);
+		$where      = GetModel::rangeClause($tables, $linkTo, $between1, $between2, $filterTo, $inTo, $params);
+		$order      = SchemaGuard::safeOrderBy($tables, $orderBy, $orderMode);
+		$limit      = SchemaGuard::safeLimit($startAt, $endAt);
+
+		if ($joins === null || $safeSelect === null || $where === null || $order === null || $limit === null) {
+
+			return null;
+		}
+
+		return GetModel::run("SELECT $safeSelect FROM $tables[0] $joins" . $where . $order . $limit, $params);
+	}
+
+	/*=============================================
+	Equality WHERE: column checked, value bound
+	=============================================*/
+
+	static private function filterClause(array $tables, $linkTo, $equalTo, array &$params): ?string
+	{
+		$columns = array_map("trim", explode(",", (string) $linkTo));
+		$values  = array_map("trim", explode(",", (string) $equalTo));
+
+		if (count($columns) !== count($values)) {
+
+			return null;
+		}
+
+		$conditions = [];
+
+		foreach ($columns as $index => $column) {
+
+			if (!SchemaGuard::isColumn($tables, $column)) {
 
 				return null;
-			
 			}
 
-			return $stmt -> fetchAll(PDO::FETCH_CLASS);
+			$conditions[] = $column . " = :filter" . $index;
 
-		}else{
-
-			return null;
+			$params[":filter" . $index] = $values[$index];
 		}
-		
+
+		return " WHERE " . implode(" AND ", $conditions);
 	}
 
 	/*=============================================
-	Peticiones GET con filtro entre tablas relacionadas
+	Search WHERE: LIKE on the first column, equality on the rest
 	=============================================*/
 
-	static public function getRelDataFilter($rel, $type, $select, $linkTo, $equalTo, $orderBy,$orderMode,$startAt,$endAt){
+	static private function searchClause(array $tables, $linkTo, $search, array &$params): ?string
+	{
+		$columns = array_map("trim", explode(",", (string) $linkTo));
+		$values  = array_map("trim", explode(",", (string) $search));
 
+		if (count($columns) !== count($values)) {
 
-		/*=============================================
-		Organizamos los filtros
-		=============================================*/
-
-		$linkToArray = explode(",",$linkTo);
-		$equalToArray = explode(",",$equalTo);
-		$linkToText = "";
-
-		if(count($linkToArray)>1){
-
-			foreach ($linkToArray as $key => $value) {
-
-				if($key > 0){
-
-					$linkToText .= "AND ".$value." = :".$value." ";
-				}
-			}
-
+			return null;
 		}
 
-		/*=============================================
-		Organizamos las relaciones
-		=============================================*/
+		$conditions = [];
 
-		$relArray = explode(",", $rel);
-		$typeArray = explode(",", $type);
-		$innerJoinText = "";
+		foreach ($columns as $index => $column) {
 
-		if(count($relArray)>1){
-
-			foreach ($relArray as $key => $value) {
-
-				/*=============================================
-				Validar existencia de la tabla
-				=============================================*/
-				
-				if(empty(Connection::getColumnsData($value, ["*"]))){
-
-					return null;
-
-				}
-				
-				if($key > 0){
-
-					$innerJoinText .= "INNER JOIN ".$value." ON ".$relArray[0].".id_".$typeArray[$key]."_".$typeArray[0] ." = ".$value.".id_".$typeArray[$key]." ";
-				}
-			}
-
-
-			/*=============================================
-			Sin ordenar y sin limitar datos
-			=============================================*/
-
-			$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkToArray[0] = :$linkToArray[0] $linkToText";
-
-			/*=============================================
-			Ordenar datos sin limites
-			=============================================*/
-
-			if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
-
-				$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkToArray[0] = :$linkToArray[0] $linkToText ORDER BY $orderBy $orderMode";
-
-			}
-
-			/*=============================================
-			Ordenar y limitar datos
-			=============================================*/
-
-			if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-				$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkToArray[0] = :$linkToArray[0] $linkToText ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt";
-
-			}
-
-			/*=============================================
-			Limitar datos sin ordenar
-			=============================================*/
-
-			if($orderBy == null && $orderMode == null && $startAt != null && $endAt != null){
-
-				$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkToArray[0] = :$linkToArray[0] $linkToText LIMIT $startAt, $endAt";
-
-			}
-
-			$stmt = Connection::connect()->prepare($sql);
-
-			foreach ($linkToArray as $key => $value) {
-			
-				$stmt -> bindParam(":".$value, $equalToArray[$key], PDO::PARAM_STR);
-
-			}
-
-			try{
-
-				$stmt -> execute();
-
-			}catch(PDOException $Exception){
+			if (!SchemaGuard::isColumn($tables, $column)) {
 
 				return null;
-			
 			}
 
-			return $stmt -> fetchAll(PDO::FETCH_CLASS);
+			if ($index === 0) {
 
-		}else{
+				$conditions[] = $column . " LIKE :search0";
 
-			return null;
+				$params[":search0"] = "%" . $values[0] . "%";
+
+				continue;
+			}
+
+			$conditions[] = $column . " = :search" . $index;
+
+			$params[":search" . $index] = $values[$index];
 		}
-		
+
+		return " WHERE " . implode(" AND ", $conditions);
 	}
 
 	/*=============================================
-	Peticiones GET para el buscador sin relaciones
+	Range WHERE, with an optional IN filter
 	=============================================*/
 
-	static public function getDataSearch($table, $select, $linkTo, $search,$orderBy,$orderMode,$startAt,$endAt){
+	static private function rangeClause(array $tables, $linkTo, $between1, $between2, $filterTo, $inTo, array &$params): ?string
+	{
+		if (!SchemaGuard::isColumn($tables, $linkTo)) {
 
-		/*=============================================
-		Validar existencia de la tabla y de las columnas
-		=============================================*/
-
-		$linkToArray = explode(",",$linkTo);
-		$selectArray = explode(",",$select);
-
-		foreach ($linkToArray  as $key => $value) {
-			array_push($selectArray, $value);
-		}
-
-		$selectArray = array_unique($selectArray);
-		
-		if(empty(Connection::getColumnsData($table,$selectArray ))){
-			
 			return null;
-
 		}
 
-		$searchArray = explode(",",$search);
-		$linkToText = "";
+		$sql = " WHERE " . trim((string) $linkTo) . " BETWEEN :between1 AND :between2";
 
-		if(count($linkToArray)>1){
+		$params[":between1"] = $between1;
+		$params[":between2"] = $between2;
 
-			foreach ($linkToArray as $key => $value) {
-				
-				if($key > 0){
+		$hasFilter = $filterTo !== null
+			&& trim((string) $filterTo) !== ""
+			&& $inTo !== null
+			&& trim((string) $inTo) !== "";
 
-					$linkToText .= "AND ".$value." = :".$value." ";
-				}
-			}
+		if (!$hasFilter) {
 
+			return $sql;
 		}
 
+		if (!SchemaGuard::isColumn($tables, $filterTo)) {
 
-		/*=============================================
-		Sin ordenar y sin limitar datos
-		=============================================*/
-
-		$sql = "SELECT $select FROM $table WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText";
-
-		/*=============================================
-		Ordenar datos sin limites
-		=============================================*/
-
-		if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
-
-			$sql = "SELECT $select FROM $table WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText ORDER BY $orderBy $orderMode";
-
+			return null;
 		}
 
-		/*=============================================
-		Ordenar y limitar datos
-		=============================================*/
+		$placeholders = [];
 
-		if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
+		foreach (array_map("trim", explode(",", (string) $inTo)) as $index => $value) {
 
-			$sql = "SELECT $select FROM $table WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt";
+			$placeholders[] = ":in" . $index;
 
+			$params[":in" . $index] = $value;
 		}
 
-		/*=============================================
-		Limitar datos sin ordenar
-		=============================================*/
+		return $sql . " AND " . trim((string) $filterTo) . " IN (" . implode(",", $placeholders) . ")";
+	}
 
-		if($orderBy == null && $orderMode == null && $startAt != null && $endAt != null){
+	/*=============================================
+	Shared execution
+	=============================================*/
 
-			$sql = "SELECT $select FROM $table WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText LIMIT $startAt, $endAt";
-
-		}
-
+	static private function run(string $sql, array $params)
+	{
 		$stmt = Connection::connect()->prepare($sql);
 
-		foreach ($linkToArray as $key => $value) {
+		foreach ($params as $name => $value) {
 
-			if($key > 0){
-			
-				$stmt -> bindParam(":".$value, $searchArray[$key], PDO::PARAM_STR);
-
-			}
-
+			$stmt->bindValue($name, $value, PDO::PARAM_STR);
 		}
 
-		try{
+		try {
 
-			$stmt -> execute();
+			$stmt->execute();
+		} catch (PDOException $exception) {
 
-		}catch(PDOException $Exception){
+			error_log("Query failed: " . $exception->getMessage() . " | SQL: " . $sql);
 
 			return null;
-		
 		}
 
-		return $stmt -> fetchAll(PDO::FETCH_CLASS);
-
-
+		return $stmt->fetchAll(PDO::FETCH_CLASS);
 	}
-
-
-	/*=============================================
-	Peticiones GET para el buscador entre tablas relacionadas
-	=============================================*/
-
-	static public function getRelDataSearch($rel, $type, $select, $linkTo, $search, $orderBy,$orderMode,$startAt,$endAt){
-
-
-		/*=============================================
-		Organizamos los filtros
-		=============================================*/
-		$linkToArray = explode(",",$linkTo);
-		$searchArray = explode(",",$search);
-		$linkToText = "";
-
-		if(count($linkToArray)>1){
-
-			foreach ($linkToArray as $key => $value) {
-				
-				if($key > 0){
-
-					$linkToText .= "AND ".$value." = :".$value." ";
-				}
-			}
-
-		}
-	
-		/*=============================================
-		Organizamos las relaciones
-		=============================================*/
-
-		$relArray = explode(",", $rel);
-		$typeArray = explode(",", $type);
-		$innerJoinText = "";
-
-		if(count($relArray)>1){
-
-			foreach ($relArray as $key => $value) {
-
-				/*=============================================
-				Validar existencia de la tabla
-				=============================================*/
-				
-				if(empty(Connection::getColumnsData($value, ["*"]))){
-
-					return null;
-
-				}
-				
-				if($key > 0){
-
-					$innerJoinText .= "INNER JOIN ".$value." ON ".$relArray[0].".id_".$typeArray[$key]."_".$typeArray[0] ." = ".$value.".id_".$typeArray[$key]." ";
-				}
-			}
-
-
-			/*=============================================
-			Sin ordenar y sin limitar datos
-			=============================================*/
-
-			$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText";
-
-			/*=============================================
-			Ordenar datos sin limites
-			=============================================*/
-
-			if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
-
-				$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText ORDER BY $orderBy $orderMode";
-
-			}
-
-			/*=============================================
-			Ordenar y limitar datos
-			=============================================*/
-
-			if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-				$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt";
-
-			}
-
-			/*=============================================
-			Limitar datos sin ordenar
-			=============================================*/
-
-			if($orderBy == null && $orderMode == null && $startAt != null && $endAt != null){
-
-				$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText LIMIT $startAt, $endAt";
-
-			}
-
-			$stmt = Connection::connect()->prepare($sql);
-
-			foreach ($linkToArray as $key => $value) {
-
-				if($key > 0){
-				
-					$stmt -> bindParam(":".$value, $searchArray[$key], PDO::PARAM_STR);
-
-				}
-
-			}
-
-			try{
-
-				$stmt -> execute();
-
-			}catch(PDOException $Exception){
-
-				return null;
-			
-			}
-
-			return $stmt -> fetchAll(PDO::FETCH_CLASS);
-
-		}else{
-
-			return null;
-		}
-		
-	}
-
-	/*=============================================
-	Peticiones GET para selección de rangos
-	=============================================*/
-
-	static public function getDataRange($table,$select,$linkTo,$between1,$between2,$orderBy,$orderMode,$startAt,$endAt, $filterTo, $inTo){
-
-		/*=============================================
-		Validar existencia de la tabla y de las columnas
-		=============================================*/
-
-		$linkToArray = explode(",",$linkTo);
-
-		if($filterTo != null){
-			$filterToArray = explode(",",$filterTo);
-		}else{
-			$filterToArray =array();
-		}
-
-		$selectArray = explode(",",$select);
-
-		foreach ($linkToArray  as $key => $value) {
-			array_push($selectArray, $value);
-		}
-
-		foreach ($filterToArray  as $key => $value) {
-			array_push($selectArray, $value);
-		}
-
-		$selectArray = array_unique($selectArray);
-		
-		if(empty(Connection::getColumnsData($table,$selectArray ))){
-			
-			return null;
-
-		}
-
-		$filter = "";
-
-		if($filterTo != null && $inTo != null){
-
-			$filter = 'AND '.$filterTo.' IN ('.$inTo.')';
-
-		}
-
-		/*=============================================
-		Sin ordenar y sin limitar datos
-		=============================================*/
-
-		$sql = "SELECT $select FROM $table WHERE $linkTo BETWEEN '$between1' AND '$between2' $filter";
-
-		/*=============================================
-		Ordenar datos sin limites
-		=============================================*/
-
-		if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
-
-			$sql = "SELECT $select FROM $table WHERE $linkTo BETWEEN '$between1' AND '$between2' $filter ORDER BY $orderBy $orderMode";
-
-		}
-
-		/*=============================================
-		Ordenar y limitar datos
-		=============================================*/
-
-		if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-			$sql = "SELECT $select FROM $table WHERE $linkTo BETWEEN '$between1' AND '$between2' $filter ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt";
-
-		}
-
-		/*=============================================
-		Limitar datos sin ordenar
-		=============================================*/
-
-		if($orderBy == null && $orderMode == null && $startAt != null && $endAt != null){
-
-			$sql = "SELECT $select FROM $table WHERE $linkTo BETWEEN '$between1' AND '$between2' $filter LIMIT $startAt, $endAt";
-
-		}
-
-		$stmt = Connection::connect()->prepare($sql);
-
-		try{
-
-			$stmt -> execute();
-
-		}catch(PDOException $Exception){
-
-			return null;
-		
-		}
-
-		return $stmt -> fetchAll(PDO::FETCH_CLASS);
-
-	}
-
-	/*=============================================
-	Peticiones GET para selección de rangos con relaciones
-	=============================================*/
-
-	static public function getRelDataRange($rel,$type,$select,$linkTo,$between1,$between2,$orderBy,$orderMode,$startAt,$endAt, $filterTo, $inTo){
-
-		/*=============================================
-		Validar existencia de la tabla y de las columnas
-		=============================================*/
-
-		$linkToArray = explode(",",$linkTo);
-		
-		if($filterTo != null){
-			$filterToArray = explode(",",$filterTo);
-		}else{
-			$filterToArray =array();
-		}
-
-		$filter = "";
-
-		if($filterTo != null && $inTo != null){
-
-			$filter = 'AND '.$filterTo.' IN ('.$inTo.')';
-
-		}
-
-		$relArray = explode(",", $rel);
-		$typeArray = explode(",", $type);
-		$innerJoinText = "";
-
-		if(count($relArray)>1){
-
-			foreach ($relArray as $key => $value) {
-
-				/*=============================================
-				Validar existencia de la tabla
-				=============================================*/
-				
-				if(empty(Connection::getColumnsData($value, ["*"]))){
-
-					return null;
-
-				}
-
-				
-				if($key > 0){
-
-					$innerJoinText .= "INNER JOIN ".$value." ON ".$relArray[0].".id_".$typeArray[$key]."_".$typeArray[0]." = ".$value.".id_".$typeArray[$key]." ";
-				}
-			}
-
-			/*=============================================
-			Sin ordenar y sin limitar datos
-			=============================================*/
-
-			$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkTo BETWEEN '$between1' AND '$between2' $filter";
-
-			/*=============================================
-			Ordenar datos sin limites
-			=============================================*/
-
-			if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
-
-				$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkTo BETWEEN '$between1' AND '$between2' $filter ORDER BY $orderBy $orderMode";
-
-			}
-
-			/*=============================================
-			Ordenar y limitar datos
-			=============================================*/
-
-			if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-				$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkTo BETWEEN '$between1' AND '$between2' $filter ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt";
-
-			}
-
-			/*=============================================
-			Limitar datos sin ordenar
-			=============================================*/
-
-			if($orderBy == null && $orderMode == null && $startAt != null && $endAt != null){
-
-				$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkTo BETWEEN '$between1' AND '$between2' $filter LIMIT $startAt, $endAt";
-
-			}
-
-			$stmt = Connection::connect()->prepare($sql);
-
-			try{
-
-				$stmt -> execute();
-
-			}catch(PDOException $Exception){
-
-				return null;
-			
-			}
-
-			return $stmt -> fetchAll(PDO::FETCH_CLASS);
-
-		}else{
-
-			return null;
-		}
-
-	}
-
-
 }
-

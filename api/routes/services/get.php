@@ -1,5 +1,11 @@
 <?php
 
+/**
+ * Included from routes/routes.php, which defines the variables below.
+ *
+ * @var string $table Table name from the first URI segment
+ */
+
 require_once "controllers/get.controller.php";
 require_once "models/connection.php";
 
@@ -14,7 +20,7 @@ $inTo = $_GET["inTo"] ?? null;
 $response = new GetController();
 
 /*=============================================
-Peticiones GET con filtro
+GET with filter
 =============================================*/
 
 if(isset($_GET["linkTo"]) && isset($_GET["equalTo"]) && !isset($_GET["rel"]) && !isset($_GET["type"]) ){
@@ -22,7 +28,7 @@ if(isset($_GET["linkTo"]) && isset($_GET["equalTo"]) && !isset($_GET["rel"]) && 
 	$response -> getDataFilter($table, $select,$_GET["linkTo"],$_GET["equalTo"],$orderBy,$orderMode,$startAt,$endAt);
 
 /*=============================================
-Peticiones GET sin filtro entre tablas relacionadas
+GET across related tables
 =============================================*/
 
 }else if(isset($_GET["rel"]) && isset($_GET["type"]) && $table == "relations" && !isset($_GET["linkTo"]) && !isset($_GET["equalTo"])){
@@ -30,7 +36,7 @@ Peticiones GET sin filtro entre tablas relacionadas
 	$response -> getRelData($_GET["rel"],$_GET["type"],$select,$orderBy,$orderMode,$startAt,$endAt);
 	
 /*=============================================
-Peticiones GET con filtro entre tablas relacionadas
+GET across related tables, with filter
 =============================================*/
 
 }else if(isset($_GET["rel"]) && isset($_GET["type"]) && $table == "relations" && isset($_GET["linkTo"]) && isset($_GET["equalTo"])){
@@ -38,7 +44,7 @@ Peticiones GET con filtro entre tablas relacionadas
 	$response -> getRelDataFilter($_GET["rel"],$_GET["type"],$select,$_GET["linkTo"],$_GET["equalTo"],$orderBy,$orderMode,$startAt,$endAt);
 
 /*=============================================
-Peticiones GET para el buscador sin relaciones
+GET for the search box
 =============================================*/
 
 }else if(!isset($_GET["rel"]) && !isset($_GET["type"]) && isset($_GET["linkTo"]) && isset($_GET["search"])){
@@ -46,7 +52,7 @@ Peticiones GET para el buscador sin relaciones
 	$response -> getDataSearch($table, $select,$_GET["linkTo"],$_GET["search"],$orderBy,$orderMode,$startAt,$endAt);
 
 /*=============================================
-Peticiones GET para el buscador con relaciones
+GET for the search box, across related tables
 =============================================*/
 
 }else if(isset($_GET["rel"]) && isset($_GET["type"]) && $table == "relations" && isset($_GET["linkTo"]) && isset($_GET["search"])){
@@ -55,7 +61,7 @@ Peticiones GET para el buscador con relaciones
 	$response -> getRelDataSearch($_GET["rel"],$_GET["type"],$select,$_GET["linkTo"],$_GET["search"],$orderBy,$orderMode,$startAt,$endAt);
 
 /*=============================================
-Peticiones GET para selección de rangos
+GET by range
 =============================================*/
 
 }else if(!isset($_GET["rel"]) && !isset($_GET["type"]) && isset($_GET["linkTo"]) && isset($_GET["between1"]) && isset($_GET["between2"])){
@@ -63,7 +69,7 @@ Peticiones GET para selección de rangos
 	$response -> getDataRange($table,$select,$_GET["linkTo"],$_GET["between1"],$_GET["between2"],$orderBy,$orderMode,$startAt,$endAt, $filterTo, $inTo);
 
 /*=============================================
-Peticiones GET para selección de rangos con relaciones
+GET by range, across related tables
 =============================================*/
 
 }else if(isset($_GET["rel"]) && isset($_GET["type"]) && $table == "relations" && isset($_GET["linkTo"]) && isset($_GET["between1"]) && isset($_GET["between2"])){
@@ -73,7 +79,7 @@ Peticiones GET para selección de rangos con relaciones
 }else{
 
 	/*=============================================
-	Peticiones GET sin filtro
+	GET without filter
 	=============================================*/
 
 	$response -> getData($table, $select,$orderBy,$orderMode,$startAt,$endAt);

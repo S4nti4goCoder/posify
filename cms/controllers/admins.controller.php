@@ -1,9 +1,16 @@
-<?php 
+<?php
+
+require_once __DIR__ . "/../../lib/password.hasher.php";
+require_once __DIR__ . "/../../lib/office.guard.php";
+require_once __DIR__ . "/../../lib/login.throttle.php";
+require_once __DIR__ . "/../../lib/password.reset.php";
+require_once __DIR__ . "/../../lib/password.policy.php";
+require_once __DIR__ . "/../../lib/view.php";
 
 class AdminsController{
 
 	/*=============================================
-	Login de adminstradores
+	Administrator login
 	=============================================*/	
 
 	public function login(){
@@ -17,6 +24,28 @@ class AdminsController{
 
 			</script>';
 
+			/*=============================================
+			Refused before the password is even checked, so guessing costs
+			the attacker time instead of costing the server work
+			=============================================*/
+
+			if(LoginThrottle::tooMany($_POST["email_admin"])){
+
+				$minutes = LoginThrottle::waitFor($_POST["email_admin"]);
+
+				echo '<div class="alert alert-danger mt-3 rounded">Demasiados intentos fallidos. Espera '.$minutes.' minutos.</div>
+
+				<script>
+
+					fncMatPreloader("off");
+					fncFormatInputs();
+					fncToastr("error", "Demasiados intentos fallidos. Espera '.$minutes.' minutos.");
+
+				</script>';
+
+				return;
+			}
+
 			$url = "admins?login=true&suffix=admin";
 			$method = "POST";
 			$fields = array(
@@ -29,7 +58,7 @@ class AdminsController{
 			if($login->status == 200){
 
 				/*=============================================
-				Validar estado del administrador
+				Check the administrator status
 				=============================================*/
 
 				if($login->results[0]->status_admin == 0){
@@ -48,7 +77,7 @@ class AdminsController{
 				}
 
 				/*=============================================
-				Traer la info de sucursales
+				Read the branch data
 				=============================================*/
 				if($login->results[0]->id_office_admin > 0){
 					$url = "relations?rel=admins,offices&type=admin,office&linkTo=id_admin,id_office&equalTo=".$login->results[0]->id_admin.",".$login->results[0]->id_office_admin;
@@ -58,18 +87,28 @@ class AdminsController{
 				}
 
 				/*=============================================
-				Crear variable de Sesión
+				Create the session variable
 				=============================================*/
+				/*=============================================
+				A new session id, so one known before the login is not the
+				one that ends up authenticated
+				=============================================*/
+
+				LoginThrottle::clear($_POST["email_admin"] ?? "");
+
+				session_regenerate_id(true);
+
 				$_SESSION["admin"] = $login->results[0];
+				OfficeGuard::remember($login->results[0]);
 				echo '<script>
-					localStorage.setItem("tokenAdmin","'.$login->results[0]->token_admin.'");
+					localStorage.removeItem("tokenAdmin");
 					fncMatPreloader("off");
 					fncFormatInputs();
 					location.reload();
 				</script>';
 
 				/*=============================================
-				Generar y enviar código de seguridad al correo
+				Generate the security code and email it
 				=============================================*/
 
 				/*
@@ -126,13 +165,16 @@ class AdminsController{
 
 			}else{
 
-				echo '<div class="alert alert-danger mt-3 rounded">Error al ingresar: '.$login->results.'</div>
+				// a wrong password is what the limit counts
+				LoginThrottle::fail($_POST["email_admin"]);
+
+				echo '<div class="alert alert-danger mt-3 rounded">Correo o contraseña incorrectos</div>
 
 				<script>
 
 					fncMatPreloader("off");
 					fncFormatInputs();
-					fncToastr("error", "Error al ingresar: '.$login->results.'");
+					fncToastr("error", "Correo o contraseña incorrectos");
 
 				</script>';
 			}
@@ -144,7 +186,7 @@ class AdminsController{
 
 
 	/*=============================================
-	Validar código de seguridad
+	Check the security code
 	=============================================*/
 
 	public function securityCode(){
@@ -163,7 +205,7 @@ class AdminsController{
 			';
 
 			/*=============================================
-			Validar admin
+			Check the admin
 			=============================================*/
 
 			$url = "admins?linkTo=scode_admin&equalTo=".$_POST["scode_admin"];
@@ -175,14 +217,21 @@ class AdminsController{
 			if($admin->status == 200){
 
 				/*=============================================
-				Crear variable de Sesión
+				Create the session variable
 				=============================================*/
 
+				/*=============================================
+				A new session id, so one known before the login is not the
+				one that ends up authenticated
+				=============================================*/
+
+				session_regenerate_id(true);
+
 				$_SESSION["admin"] = $admin->results[0];
+				OfficeGuard::remember($admin->results[0]);
 
 				echo '<script>
-
-					localStorage.setItem("tokenAdmin","'.$admin->results[0]->token_admin.'");
+					localStorage.removeItem("tokenAdmin");
 					fncMatPreloader("off");
 					fncFormatInputs();
 					location.reload();
@@ -207,7 +256,7 @@ class AdminsController{
 	}
 
 	/*=============================================
-	Actualizar Administrador
+	Update an administrator
 	=============================================*/
 
 	public function updateAdmin(){
@@ -226,7 +275,7 @@ class AdminsController{
 			';
 
 			/*=============================================
-			Validar admin
+			Check the admin
 			=============================================*/
 
 			$url = "admins?linkTo=id_admin&equalTo=".base64_decode($_POST["id_admin"])."&select=id_admin,password_admin,rol_admin";
@@ -238,12 +287,25 @@ class AdminsController{
 			if($admin->status == 200){
 
 				/*=============================================
-				Si hay cambio de contraseña
+				Only when the password changed
 				=============================================*/
 
 				if(!empty($_POST["password_admin"])){
 
-					$crypt = crypt($_POST["password_admin"], '$2a$07$azybxcags23425sdg23sdfhsd$');
+					$failed = PasswordPolicy::check((string) $_POST["password_admin"]);
+
+					if($failed !== []){
+
+						echo '<script>
+								fncMatPreloader("off");
+								fncFormatInputs();
+								fncToastr("error", ' . View::js(PasswordPolicy::message($failed)) . ');
+							</script>';
+
+						return;
+					}
+
+					$crypt = PasswordHasher::hash($_POST["password_admin"]);
 
 				}else{
 
@@ -252,7 +314,7 @@ class AdminsController{
 				}
 
 				/*=============================================
-				Subir cambios a base de datos
+				Save the changes
 				=============================================*/
 
 				$url = "admins?id=".$admin->results[0]->id_admin."&nameId=id_admin&token=".$_SESSION["admin"]->token_admin."&table=admins&suffix=admin";	
@@ -309,91 +371,93 @@ class AdminsController{
 	}
 
 	/*=============================================
-	Recuperar contraseña
+	Password recovery
+	=============================================*/
+
+	/*=============================================
+	Password recovery.
+
+	The old version generated a password, wrote it to the account and only
+	then tried to email it. Typing somebody's address was enough to lock
+	them out, and with mail unconfigured the new one went nowhere.
+
+	Nothing is written to the password now until the code from the message
+	comes back through completeReset().
 	=============================================*/
 
 	public function resetPassword(){
 
-		if(isset($_POST["resetPassword"])){
+		if(!isset($_POST["resetPassword"])){
 
-			echo '<script>
+			return;
+		}
 
-				fncMatPreloader("on");
-				fncSweetAlert("loading", "", "");
+		$code = PasswordReset::open((string) $_POST["resetPassword"]);
+
+		if($code !== null){
+
+			$link = $_SERVER["REQUEST_SCHEME"]."://".$_SERVER["SERVER_NAME"]."?reset=".$code;
+
+			TemplateController::sendEmail(
+				"Recuperar contraseña",
+				(string) $_POST["resetPassword"],
+				"RECUPERAR CONTRASEÑA",
+				'<h4 style="font-weight:100; color:#999; padding:0px 20px">Abre este enlace para elegir una contraseña nueva. Caduca en una hora y solo sirve una vez.</h4>',
+				$link
+			);
+		}
+
+		/*=============================================
+		The same answer either way: a different one would turn this screen
+		into a way of finding out which addresses are registered
+		=============================================*/
+
+		echo '<script>
+
+				fncFormatInputs();
+				fncMatPreloader("off");
+				fncToastr("success", "Si el correo está registrado, recibirás un enlace para elegir una contraseña nueva.");
 
 			</script>';
+	}
 
-			/*=============================================
-			Preguntamos primero si el usuario está registrado
-			=============================================*/	
+	/*=============================================
+	The second half: the code came back, so the password may change
+	=============================================*/
 
-			$url = "admins?linkTo=email_admin&equalTo=".$_POST["resetPassword"]."&select=id_admin";
-			$method = "GET";
-			$fields = array();
+	public function completeReset(){
 
-			$admin = CurlController::request($url,$method,$fields);
-			
-			if($admin->status == 200){
+		if(!isset($_POST["resetCode"], $_POST["newPassword"])){
 
-				$newPassword = TemplateController::genPassword(11);
-				$crypt = crypt($newPassword, '$2a$07$azybxcags23425sdg23sdfhsd$');
-
-				/*=============================================
-				Actualizar contraseña en base de datos
-				=============================================*/
-				$url = "admins?id=".$admin->results[0]->id_admin."&nameId=id_admin&token=no&except=password_admin";
-				$method = "PUT";
-				$fields = "password_admin=".$crypt;
-
-				$updatePassword = CurlController::request($url,$method,$fields);
-
-				if($updatePassword->status == 200){
-
-					$subject = "Solicitud de nueva contraseña";
-					$email = $_POST["resetPassword"];
-					$title = 'SOLICITUD DE NUEVA CONTRASEÑA';
-					$message = '<h4 style="font-weight: 100; color:#999; padding:0px 20px"><strong>Su nueva contraseña: '.$newPassword.'</strong></4><h4 style="font-weight: 100; color:#999; padding:0px 20px">Ingrese nuevamente al sitio con esta contraseña y recuerde cambiarla</4>';
-					$link = $_SERVER["REQUEST_SCHEME"]."://".$_SERVER["SERVER_NAME"];
-
-					$sendEmail = TemplateController::sendEmail($subject, $email, $title, $message, $link);
-
-					if($sendEmail == "ok"){
-
-						echo '<script>
-
-								fncFormatInputs();
-								fncMatPreloader("off");
-								fncToastr("success", "Su nueva contraseña ha sido enviada con éxito, por favor revise su correo electrónico");
-
-							</script>
-						';
-
-					}else{
-
-						echo '<script>
-
-							fncFormatInputs();
-							fncMatPreloader("off");
-							fncNotie("error", "'.$sendEmail.'");
-
-							</script>
-						';
-					}
-				}
-
-			}else{
-				
-				echo '<script>
-
-						fncFormatInputs();
-						fncMatPreloader("off");
-						fncNotie("error", "El correo no existe en la base de datos");
-
-					</script>
-				';
-
-			}
+			return;
 		}
+
+		$failed = PasswordPolicy::check((string) $_POST["newPassword"]);
+
+		if($failed !== []){
+
+			echo '<script>
+					fncMatPreloader("off");
+					fncToastr("error", ' . View::js(PasswordPolicy::message($failed)) . ');
+				</script>';
+
+			return;
+		}
+
+		if(!PasswordReset::complete((string) $_POST["resetCode"], (string) $_POST["newPassword"])){
+
+			echo '<script>
+					fncMatPreloader("off");
+					fncToastr("error", "El enlace ya caducó o no es válido. Pide uno nuevo.");
+				</script>';
+
+			return;
+		}
+
+		echo '<script>
+				fncMatPreloader("off");
+				fncSweetAlert("success", "Tu contraseña ha sido cambiada. Ya puedes ingresar.", "/");
+			</script>';
 	}
 
 }

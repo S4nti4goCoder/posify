@@ -1,5 +1,7 @@
 <?php 
 
+require_once __DIR__ . "/../../lib/password.hasher.php";
+
 require_once "models/get.model.php";
 require_once "models/post.model.php";
 require_once "models/connection.php";
@@ -12,7 +14,7 @@ require_once "models/put.model.php";
 class PostController{
 
 	/*=============================================
-	Peticion POST para crear datos
+	POST to create data
 	=============================================*/
 
 	static public function postData($table, $data){
@@ -25,16 +27,14 @@ class PostController{
 	}
 
 	/*=============================================
-	Peticion POST para registrar usuario
+	POST to register a user
 	=============================================*/
 
 	static public function postRegister($table, $data, $suffix){
 
 		if(isset($data["password_".$suffix]) && $data["password_".$suffix] != null){
 
-			$crypt = crypt($data["password_".$suffix], '$2a$07$azybxcags23425sdg23sdfhsd$');
-
-			$data["password_".$suffix] = $crypt;
+			$data["password_".$suffix] = PasswordHasher::hash((string) $data["password_".$suffix]);
 
 			$response = PostModel::postData($table, $data);
 
@@ -44,66 +44,26 @@ class PostController{
 		}else{
 
 			/*=============================================
-			Registro de usuarios desde APP externas
+			A password is mandatory to register
 			=============================================*/
 
-			$response = PostModel::postData($table, $data);
+			$return = new PostController();
+			$return -> fncResponse(null, "Password required", $suffix);
 
-			if(isset($response["comment"]) && $response["comment"] == "The process was successful" ){
-
-				/*=============================================
-				Validar que el usuario exista en BD
-				=============================================*/
-
-				$response = GetModel::getDataFilter($table, "*", "email_".$suffix, $data["email_".$suffix], null,null,null,null);
-				
-				if(!empty($response)){		
-
-					$token = Connection::jwt($response[0]->{"id_".$suffix}, $response[0]->{"email_".$suffix});
-
-					$jwt = JWT::encode($token, "dfhsdfg34dfchs4xgsrsdry46");
-
-					/*=============================================
-					Actualizamos la base de datos con el Token del usuario
-					=============================================*/
-
-					$data = array(
-
-						"token_".$suffix => $jwt,
-						"token_exp_".$suffix => $token["exp"]
-
-					);
-
-					$update = PutModel::putData($table, $data, $response[0]->{"id_".$suffix}, "id_".$suffix);
-
-					if(isset($update["comment"]) && $update["comment"] == "The process was successful" ){
-
-						$response[0]->{"token_".$suffix} = $jwt;
-						$response[0]->{"token_exp_".$suffix} = $token["exp"];
-
-						$return = new PostController();
-						$return -> fncResponse($response, null,$suffix);
-
-					}
-
-				}
-
-
-			}
-
+			return;
 
 		}
 
 	}
 
 	/*=============================================
-	Peticion POST para login de usuario
+	POST to log a user in
 	=============================================*/
 
 	static public function postLogin($table, $data, $suffix){
 
 		/*=============================================
-		Validar que el usuario exista en BD
+		The user must exist
 		=============================================*/
 
 		$response = GetModel::getDataFilter($table, "*", "email_".$suffix, $data["email_".$suffix], null,null,null,null);
@@ -111,21 +71,33 @@ class PostController{
 		if(!empty($response)){	
 
 			if($response[0]->{"password_".$suffix} != null)	{
-			
-				/*=============================================
-				Encriptamos la contraseña
-				=============================================*/
 
-				$crypt = crypt($data["password_".$suffix], '$2a$07$azybxcags23425sdg23sdfhsd$');
+				$stored = (string) $response[0]->{"password_".$suffix};
+				$plain  = (string) ($data["password_".$suffix] ?? "");
 
-				if($response[0]->{"password_".$suffix} == $crypt){
+				if(PasswordHasher::verify($plain, $stored)){
+
+					/*=============================================
+					Upgrade hashes still on the old fixed salt
+					=============================================*/
+
+					if(PasswordHasher::needsRehash($stored)){
+
+						PutModel::putData(
+							$table,
+							array("password_".$suffix => PasswordHasher::hash($plain)),
+							$response[0]->{"id_".$suffix},
+							"id_".$suffix
+						);
+
+					}
 
 					$token = Connection::jwt($response[0]->{"id_".$suffix}, $response[0]->{"email_".$suffix});
 
-					$jwt = JWT::encode($token, "dfhsdfg34dfchs4xgsrsdry46");
+					$jwt = JWT::encode($token, Config::requireSecret("jwt_secret"));
 
 					/*=============================================
-					Actualizamos la base de datos con el Token del usuario
+					Store the token
 					=============================================*/
 
 					$data = array(
@@ -152,46 +124,36 @@ class PostController{
 
 					$response = null;
 					$return = new PostController();
-					$return -> fncResponse($response, "Wrong password",$suffix);
+					$return -> fncResponse($response, "invalid_credentials",$suffix);
 
 				}
 
 			}else{
 
 				/*=============================================
-				Actualizamos el token para usuarios logueados desde app externas
+				No password stored, so nothing to verify against.
+				Same error as a wrong password, to avoid enumeration.
 				=============================================*/
 
-				$token = Connection::jwt($response[0]->{"id_".$suffix}, $response[0]->{"email_".$suffix});
-
-				$jwt = JWT::encode($token, "dfhsdfg34dfchs4xgsrsdry46");				
-
-				$data = array(
-
-					"token_".$suffix => $jwt,
-					"token_exp_".$suffix => $token["exp"]
-
-				);
-
-				$update = PutModel::putData($table, $data, $response[0]->{"id_".$suffix}, "id_".$suffix);
-
-				if(isset($update["comment"]) && $update["comment"] == "The process was successful" ){
-
-					$response[0]->{"token_".$suffix} = $jwt;
-					$response[0]->{"token_exp_".$suffix} = $token["exp"];
-
-					$return = new PostController();
-					$return -> fncResponse($response, null,$suffix);
-
-				}
+				$response = null;
+				$return = new PostController();
+				$return -> fncResponse($response, "invalid_credentials",$suffix);
 
 			}
 
 		}else{
 
+			/*=============================================
+			No such address. The same answer as a wrong password, and the
+			same time spent, so neither the text nor the delay says which
+			addresses are registered.
+			=============================================*/
+
+			PasswordHasher::burn((string) ($data["password_".$suffix] ?? ""));
+
 			$response = null;
 			$return = new PostController();
-			$return -> fncResponse($response, "Wrong email",$suffix);
+			$return -> fncResponse($response, "invalid_credentials",$suffix);
 
 		}
 
@@ -199,7 +161,7 @@ class PostController{
 	}
 
 	/*=============================================
-	Respuestas del controlador
+	Controller responses
 	=============================================*/
 
 	public function fncResponse($response,$error,$suffix){
@@ -207,7 +169,7 @@ class PostController{
 		if(!empty($response)){
 
 			/*=============================================
-			Quitamos la contraseña de la respuesta
+			Never return the password
 			=============================================*/
 
 			if(isset($response[0]->{"password_".$suffix})){

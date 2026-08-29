@@ -1,151 +1,240 @@
 <?php
 
+require_once __DIR__ . "/../../config/config.php";
+require_once __DIR__ . "/schema.guard.php";
 require_once "get.model.php";
 
-class Connection{
+class Connection
+{
 
 	/*=============================================
-	Información de la base de datos
+	Database credentials from config/config.local.php
 	=============================================*/
 
-	static public function infoDatabase(){
+	static public function infoDatabase()
+	{
 
 		$infoDB = array(
 
-			"database" => "pos_system_db",
-			"user" => "root",
-			"pass" => ""
+			"host" => Config::get("db_host"),
+			"database" => Config::get("db_name"),
+			"user" => Config::requireSecret("db_user"),
+			"pass" => Config::requireSecret("db_password"),
+			"charset" => Config::get("db_charset")
 
 		);
 
 		return $infoDB;
-
 	}
 
 	/*=============================================
-	APIKEY
+	Shared key the CMS sends in the Authorization header
 	=============================================*/
 
-	static public function apikey(){
+	static public function apikey()
+	{
 
-		return "gdfhdfhsdfyeryr34646fhdfy4564t3456fhgdy";
-
+		return Config::requireSecret("api_key");
 	}
 
 	/*=============================================
-	Acceso público
+	Public access tables
 	=============================================*/
-	
-	static public function publicAccess(){
+
+	static public function publicAccess()
+	{
 
 		$tables = [""];
 
 		return $tables;
-
 	}
 
 	/*=============================================
-	Conexión a la base de datos
+	Columns writable without a session token
 	=============================================*/
 
-	static public function connect(){
+	static public function unauthenticatedWriteAllowlist()
+	{
 
+		$allowlist = array(
 
-		try{
+			// Password recovery and e-mailed security code
+			"admins" => array("scode_admin", "password_admin")
+
+		);
+
+		/*=============================================
+		The builder installer seeds records through this same path
+		=============================================*/
+
+		if (Config::get("allow_installer")) {
+
+			$allowlist["pages"]   = array("*");
+			$allowlist["modules"] = array("*");
+			$allowlist["folders"] = array("*");
+			$allowlist["columns"] = array("*");
+		}
+
+		return $allowlist;
+	}
+
+	/*=============================================
+	True only for writes the allowlist above permits
+	=============================================*/
+
+	static public function isUnauthenticatedWriteAllowed($table, $except, $columns)
+	{
+
+		$allowlist = Connection::unauthenticatedWriteAllowlist();
+
+		if (!isset($allowlist[$table])) {
+
+			return false;
+		}
+
+		$allowed = $allowlist[$table];
+
+		if (in_array("*", $allowed, true)) {
+
+			return true;
+		}
+
+		if (!in_array($except, $allowed, true)) {
+
+			return false;
+		}
+
+		foreach ($columns as $column) {
+
+			if (!in_array($column, $allowed, true)) {
+
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/*=============================================
+	Database connection, opened once and reused.
+
+	Every model used to open its own, so a single API call cost two or three
+	handshakes with MySQL. One request only ever needs one.
+	=============================================*/
+
+	private static ?PDO $link = null;
+
+	static public function connect()
+	{
+
+		if (Connection::$link instanceof PDO) {
+
+			return Connection::$link;
+		}
+
+		$infoDB = Connection::infoDatabase();
+
+		try {
 
 			$link = new PDO(
-				"mysql:host=localhost;dbname=".Connection::infoDatabase()["database"],
-				Connection::infoDatabase()["user"], 
-				Connection::infoDatabase()["pass"]
+				"mysql:host=" . $infoDB["host"] . ";dbname=" . $infoDB["database"],
+				$infoDB["user"],
+				$infoDB["pass"]
 			);
 
-			$link->exec("set names utf8");
+			$link->exec("set names " . $infoDB["charset"]);
+		} catch (PDOException $e) {
 
-		}catch(PDOException $e){
+			/*=============================================
+			Log the cause, never expose it
+			=============================================*/
 
-			die("Error: ".$e->getMessage());
+			error_log("Database connection failed: " . $e->getMessage());
 
+			/*=============================================
+			Set the status before the debug branch, or a failure answers 200
+			=============================================*/
+
+			http_response_code(503);
+
+			if (Config::isDebug()) {
+
+				die("Error: " . $e->getMessage());
+			}
+
+			die(json_encode(array(
+				"status" => 503,
+				"results" => "Service unavailable"
+			)));
 		}
 
-		return $link;
-
+		return Connection::$link = $link;
 	}
 
 	/*=============================================
-	Validar existencia de una tabla en la bd
+	Validate a table and its columns against the catalog
 	=============================================*/
 
-	static public function getColumnsData($table, $columns){
+	static public function getColumnsData($table, $columns)
+	{
 
-		/*=============================================
-		Traer el nombre de la base de datos
-		=============================================*/
+		$known = SchemaGuard::columnsOf((string) $table);
 
-		$database = Connection::infoDatabase()["database"];
-
-		/*=============================================
-		Traer todas las columnas de una tabla
-		=============================================*/
-
-		$validate = Connection::connect()
-		->query("SELECT COLUMN_NAME AS item FROM information_schema.columns WHERE table_schema = '$database' AND table_name = '$table'")
-		->fetchAll(PDO::FETCH_OBJ);
-
-		/*=============================================
-		Validamos existencia de la tabla
-		=============================================*/
-
-		if(empty($validate)){
+		if ($known === []) {
 
 			return null;
-
-		}else{
-
-			/*=============================================
-			Ajuste de selección de columnas globales
-			=============================================*/
-
-			if($columns[0] == "*"){
-				
-				array_shift($columns);
-
-			}
-
-			/*=============================================
-			Validamos existencia de columnas
-			=============================================*/
-
-			$sum = 0;
-				
-			foreach ($validate as $key => $value) {
-
-				$sum += in_array($value->item, $columns);	
-				
-						
-			}
-
-
-
-			return $sum == count($columns) ? $validate : null;
-			
-			
-			
 		}
 
+		$requested = is_array($columns) ? $columns : [$columns];
+
+		/*=============================================
+		Global column selection
+		=============================================*/
+
+		if (isset($requested[0]) && $requested[0] === "*") {
+
+			array_shift($requested);
+		}
+
+		/*=============================================
+		Every requested column must exist
+		=============================================*/
+
+		foreach ($requested as $column) {
+
+			if (!in_array($column, $known, true)) {
+
+				return null;
+			}
+		}
+
+		/*=============================================
+		Return the catalog in the shape callers expect
+		=============================================*/
+
+		$validate = [];
+
+		foreach ($known as $column) {
+
+			$validate[] = (object) ["item" => $column];
+		}
+
+		return $validate;
 	}
 
 	/*=============================================
-	Generar Token de Autenticación
+	Build the authentication token payload
 	=============================================*/
 
-	static public function jwt($id, $email){
+	static public function jwt($id, $email)
+	{
 
 		$time = time();
 
 		$token = array(
 
-			"iat" =>  $time,//Tiempo en que inicia el token
-			"exp" => $time + (60*60*24), // Tiempo en que expirará el token (1 día)
+			"iat" =>  $time, // issued at
+			"exp" => $time + (60 * 60 * 24), // expires in one day
 			"data" => [
 
 				"id" => $id,
@@ -158,39 +247,35 @@ class Connection{
 	}
 
 	/*=============================================
-	Validar el token de seguridad
+	Validate the security token
 	=============================================*/
 
-	static public function tokenValidate($token,$table,$suffix){
+	static public function tokenValidate($token, $table, $suffix)
+	{
 
 		/*=============================================
-		Traemos el usuario de acuerdo al token
+		Find the user by token
 		=============================================*/
-		$user = GetModel::getDataFilter($table, "token_exp_".$suffix, "token_".$suffix, $token, null,null,null,null);
-		
-		if(!empty($user)){
+		$user = GetModel::getDataFilter($table, "token_exp_" . $suffix, "token_" . $suffix, $token, null, null, null, null);
+
+		if (!empty($user)) {
 
 			/*=============================================
-			Validamos que el token no haya expirado
-			=============================================*/	
+			Check the token has not expired
+			=============================================*/
 
 			$time = time();
 
-			if($time < $user[0]->{"token_exp_".$suffix}){
+			if ($time < $user[0]->{"token_exp_" . $suffix}) {
 
 				return "ok";
-
-			}else{
+			} else {
 
 				return "expired";
 			}
-
-		}else{
+		} else {
 
 			return "no-auth";
-
 		}
-
 	}
-
 }

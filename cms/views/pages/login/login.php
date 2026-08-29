@@ -22,19 +22,44 @@ if(isset($_GET["scode"])){
 
 
 <div class="container-fluid backgroundImage" <?php if (!empty($admin->back_admin)): ?>
-	style="background-image: url(<?php echo $admin->back_admin ?>)"
+	style="background-image: url(<?php echo View::url($admin->back_admin) ?>)"
 <?php else: ?>
 	style="background-color:  #f0f0f5 !important"
 <?php endif ?>>
 	
-	<div class="d-flex flex-wrap justify-content-center align-content-center vh-100">
+<?php
+
+/*=============================================
+A valid recovery code replaces the login form with the one that sets
+a new password. An invalid or expired code shows the login as usual,
+so a guessed code reveals nothing.
+=============================================*/
+
+require_once __DIR__ . "/../../../../lib/password.reset.php";
+
+$resetCode = isset($_GET["reset"]) ? (string) $_GET["reset"] : "";
+$resetAccount = $resetCode !== "" ? PasswordReset::accountFor($resetCode) : null;
+
+if ($resetAccount !== null) {
+
+	include __DIR__ . "/reset.php";
+
+	return;
+}
+
+?>
+
+	<div class="d-flex flex-wrap justify-content-center align-content-center vh-100 px-3">
 		
-		<div class="card border-0 rounded shadow p-4 w-25" style="min-width:320px !important">
+		<div class="card border-0 rounded shadow p-4 w-100" style="max-width:420px">
 			
 			<form method="POST" class="needs-validation" novalidate>
+
+		<?php echo CsrfGuard::field() ?>
+
 				
 				<h3 class="pt-3 text-center">
-					<?php echo $admin->symbol_admin ?> <?php echo $admin->title_admin ?>
+					<?php echo Theme::icon($admin->symbol_admin) ?> <?php echo View::text($admin->title_admin) ?>
 				</h3>
 
 				<hr>
@@ -136,7 +161,7 @@ if(isset($_GET["scode"])){
 
 				<?php endif ?>
 
-				<button type="submit" class="btn btn-dark btn-block w-100 rounded mt-3 backColor">Enviar</button>
+				<button type="submit" class="btn btn-dark btn-block w-100 rounded mt-3 backColor">Iniciar sesión</button>
 
 
 				
@@ -151,7 +176,7 @@ if(isset($_GET["scode"])){
 </div>
 
 <!--====================================
-Modal para recuperar contraseña
+Password recovery modal
 ====================================-->
 
 <!-- The Modal -->
@@ -160,6 +185,9 @@ Modal para recuperar contraseña
     <div class="modal-content rounded">
 
     <form method="post" class="needs-validation" novalidate>
+
+		<?php echo CsrfGuard::field() ?>
+
 
       <!-- Modal Header -->
       <div class="modal-header">

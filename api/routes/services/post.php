@@ -1,12 +1,18 @@
 <?php
 
+/**
+ * Included from routes/routes.php, which defines the variables below.
+ *
+ * @var string $table Table name from the first URI segment
+ */
+
 require_once "models/connection.php";
 require_once "controllers/post.controller.php";
 
 if(isset($_POST)){
 
 	/*=============================================
-	Separar propiedades en un arreglo
+	Collect the submitted column names
 	=============================================*/
 
 	$columns = array();
@@ -18,7 +24,7 @@ if(isset($_POST)){
 	}
 
 	/*=============================================
-	Validar la tabla y las columnas
+	Check the table and its columns
 	=============================================*/
 
 	if(empty(Connection::getColumnsData($table, $columns))){
@@ -37,7 +43,7 @@ if(isset($_POST)){
 	$response = new PostController();
 
 	/*=============================================
-	Peticion POST para registrar usuario
+	POST to register a user
 	=============================================*/	
 
 	if(isset($_GET["register"]) && $_GET["register"] == true){
@@ -47,7 +53,7 @@ if(isset($_POST)){
 		$response -> postRegister($table,$_POST,$suffix);
 
 	/*=============================================
-	Peticion POST para login de usuario
+	POST to log a user in
 	=============================================*/	
 
 	}else if(isset($_GET["login"]) && $_GET["login"] == true){
@@ -62,13 +68,13 @@ if(isset($_POST)){
 		if(isset($_GET["token"])){
 
 			/*=============================================
-			Peticion POST para usuarios no autorizados
+			POST without a session token
 			=============================================*/
 
 			if($_GET["token"] == "no" && isset($_GET["except"])){
 
 				/*=============================================
-				Validar la tabla y las columnas
+				Check the table and its columns
 				=============================================*/
 
 				$columns = array($_GET["except"]);
@@ -87,13 +93,30 @@ if(isset($_POST)){
 				}
 
 				/*=============================================
-				Solicitamos respuesta del controlador para crear datos en cualquier tabla
-				=============================================*/		
+				No session token here, so only allowlisted columns are writable
+				=============================================*/
+
+				if(!Connection::isUnauthenticatedWriteAllowed($table, $_GET["except"], array_keys($_POST))){
+
+					$json = array(
+						'status' => 403,
+						'results' => "Error: This table cannot be written without authentication"
+					);
+
+					echo json_encode($json, http_response_code($json["status"]));
+
+					return;
+
+				}
+
+				/*=============================================
+				Write to any table
+				=============================================*/
 
 				$response -> postData($table,$_POST);
 
 			/*=============================================
-			Peticion POST para usuarios autorizados
+			POST for authenticated users
 			=============================================*/
 
 			}else{
@@ -104,7 +127,7 @@ if(isset($_POST)){
 				$validate = Connection::tokenValidate($_GET["token"],$tableToken,$suffix);
 
 				/*=============================================
-				Solicitamos respuesta del controlador para crear datos en cualquier tabla
+				Write to any table
 				=============================================*/		
 
 				if($validate == "ok"){
@@ -114,7 +137,7 @@ if(isset($_POST)){
 				}
 
 				/*=============================================
-				Error cuando el token ha expirado
+				Token expired
 				=============================================*/	
 
 				if($validate == "expired"){
@@ -131,7 +154,7 @@ if(isset($_POST)){
 				}
 
 				/*=============================================
-				Error cuando el token no coincide en BD
+				Token not found
 				=============================================*/	
 
 				if($validate == "no-auth"){
@@ -150,7 +173,7 @@ if(isset($_POST)){
 			}
 
 		/*=============================================
-		Error cuando no envía token
+		No token sent
 		=============================================*/	
 
 		}else{

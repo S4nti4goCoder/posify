@@ -5,7 +5,7 @@ require_once "connection.php";
 class PostModel{
 
 	/*=============================================
-	Peticion POST para crear datos de forma dinámica
+	POST to create data in any table
 	=============================================*/
 
 	static public function postData($table, $data){
@@ -32,7 +32,15 @@ class PostModel{
 
 		foreach ($data as $key => $value) {
 
-			$stmt->bindParam(":".$key, $data[$key], PDO::PARAM_STR);
+			// an empty string reaches a date column as 0000-00-00
+			if ($data[$key] === "" && SchemaGuard::isDateColumn($table, $key)) {
+
+				$stmt->bindValue(":".$key, null, PDO::PARAM_NULL);
+
+			} else {
+
+				$stmt->bindParam(":".$key, $data[$key], PDO::PARAM_STR);
+			}
 		
 		}
 

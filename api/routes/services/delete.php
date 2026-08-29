@@ -1,5 +1,11 @@
 <?php
 
+/**
+ * Included from routes/routes.php, which defines the variables below.
+ *
+ * @var string $table Table name from the first URI segment
+ */
+
 require_once "models/connection.php";
 require_once "controllers/delete.controller.php";
 
@@ -8,7 +14,7 @@ if(isset($_GET["id"]) && isset($_GET["nameId"])){
 	$columns = array($_GET["nameId"]);
 
 	/*=============================================
-	Validar la tabla y las columnas
+	Check the table and its columns
 	=============================================*/
 
 	if(empty(Connection::getColumnsData($table, $columns))){
@@ -25,7 +31,7 @@ if(isset($_GET["id"]) && isset($_GET["nameId"])){
 	}
 
 	/*=============================================
-	Peticion DELETE para usuarios autorizados
+	DELETE for authenticated users
 	=============================================*/
 
 	if(isset($_GET["token"])){
@@ -33,30 +39,17 @@ if(isset($_GET["id"]) && isset($_GET["nameId"])){
 		if($_GET["token"] == "no" && isset($_GET["except"])){
 
 			/*=============================================
-			Validar la tabla y las columnas
+			Nothing in the CMS deletes without a session token
 			=============================================*/
 
-			$columns = array($_GET["except"]);
+			$json = array(
+				'status' => 403,
+				'results' => "Error: Delete requires authentication"
+			);
 
-			if(empty(Connection::getColumnsData($table, $columns))){
+			echo json_encode($json, http_response_code($json["status"]));
 
-				$json = array(
-				 	'status' => 400,
-				 	'results' => "Error: Fields in the form do not match the database"
-				);
-
-				echo json_encode($json, http_response_code($json["status"]));
-
-				return;
-
-			}
-
-			/*=============================================
-			Solicitamos respuesta del controlador para eliminar datos en cualquier tabla
-			=============================================*/	
-
-			$response = new DeleteController();
-			$response -> deleteData($table,$_GET["id"],$_GET["nameId"]);	
+			return;	
 
 
 		}else{
@@ -67,7 +60,7 @@ if(isset($_GET["id"]) && isset($_GET["nameId"])){
 			$validate = Connection::tokenValidate($_GET["token"],$tableToken,$suffix);
 
 			/*=============================================
-			Solicitamos respuesta del controlador para eliminar datos en cualquier tabla
+			Delete from any table
 			=============================================*/	
 				
 			if($validate == "ok"){
@@ -78,7 +71,7 @@ if(isset($_GET["id"]) && isset($_GET["nameId"])){
 			}
 
 			/*=============================================
-			Error cuando el token ha expirado
+			Token expired
 			=============================================*/	
 
 			if($validate == "expired"){
@@ -95,7 +88,7 @@ if(isset($_GET["id"]) && isset($_GET["nameId"])){
 			}
 
 			/*=============================================
-			Error cuando el token no coincide en BD
+			Token not found
 			=============================================*/	
 
 			if($validate == "no-auth"){
@@ -114,7 +107,7 @@ if(isset($_GET["id"]) && isset($_GET["nameId"])){
 		}
 
 	/*=============================================
-	Error cuando no envía token
+	No token sent
 	=============================================*/	
 
 	}else{

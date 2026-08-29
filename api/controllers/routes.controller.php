@@ -1,18 +1,9 @@
 <?php
-
-
 class RoutesController{
-
-
 	/*=============================================
-	Ruta Principal
+	Main route
 	=============================================*/
-	
 	public function index(){
-
 		include "routes/routes.php";
-
 	}
-
-
 }

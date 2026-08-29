@@ -1,20 +1,26 @@
 <?php
 
+/**
+ * Included from routes/routes.php, which defines the variables below.
+ *
+ * @var string $table Table name from the first URI segment
+ */
+
 require_once "models/connection.php";
 require_once "controllers/put.controller.php";
 
 if(isset($_GET["id"]) && isset($_GET["nameId"])){
 
 	/*=============================================
-	Capturamos los datos del formulario
+	Read the submitted body
 	=============================================*/
 
 	$data = array();
 	
-	parse_str(file_get_contents('php://input'), $data);
+	parse_str(RequestContext::body(), $data);
 		
 	/*=============================================
-	Separar propiedades en un arreglo
+	Collect the submitted column names
 	=============================================*/
 
 	$columns = array();
@@ -30,7 +36,7 @@ if(isset($_GET["id"]) && isset($_GET["nameId"])){
 	$columns = array_unique($columns);
 
 	/*=============================================
-	Validar la tabla y las columnas
+	Check the table and its columns
 	=============================================*/
 
 	if(empty(Connection::getColumnsData($table, $columns))){
@@ -49,13 +55,13 @@ if(isset($_GET["id"]) && isset($_GET["nameId"])){
 	if(isset($_GET["token"])){
 
 		/*=============================================
-		Peticion PUT para usuarios no autorizados
+		PUT without a session token
 		=============================================*/
 
 		if($_GET["token"] == "no" && isset($_GET["except"])){
 
 			/*=============================================
-			Validar la tabla y las columnas
+			Check the table and its columns
 			=============================================*/
 
 			$columns = array($_GET["except"]);
@@ -74,14 +80,31 @@ if(isset($_GET["id"]) && isset($_GET["nameId"])){
 			}
 
 			/*=============================================
-			Solicitamos respuesta del controlador para crear datos en cualquier tabla
-			=============================================*/		
+			No session token here, so only allowlisted columns are writable
+			=============================================*/
+
+			if(!Connection::isUnauthenticatedWriteAllowed($table, $_GET["except"], array_keys($data))){
+
+				$json = array(
+					'status' => 403,
+					'results' => "Error: This table cannot be written without authentication"
+				);
+
+				echo json_encode($json, http_response_code($json["status"]));
+
+				return;
+
+			}
+
+			/*=============================================
+			Write to any table
+			=============================================*/
 
 			$response = new PutController();
 			$response -> putData($table,$data,$_GET["id"],$_GET["nameId"]);
 			
 		/*=============================================
-		Peticion PUT para usuarios autorizados
+		PUT for authenticated users
 		=============================================*/
 
 		}else{
@@ -92,7 +115,7 @@ if(isset($_GET["id"]) && isset($_GET["nameId"])){
 			$validate = Connection::tokenValidate($_GET["token"],$tableToken,$suffix);
 
 			/*=============================================
-			Solicitamos respuesta del controlador para editar datos en cualquier tabla
+			Update any table
 			=============================================*/		
 
 			if($validate == "ok"){
@@ -103,7 +126,7 @@ if(isset($_GET["id"]) && isset($_GET["nameId"])){
 			}
 
 			/*=============================================
-			Error cuando el token ha expirado
+			Token expired
 			=============================================*/	
 
 			if($validate == "expired"){
@@ -120,7 +143,7 @@ if(isset($_GET["id"]) && isset($_GET["nameId"])){
 			}
 
 			/*=============================================
-			Error cuando el token no coincide en BD
+			Token not found
 			=============================================*/	
 
 			if($validate == "no-auth"){
@@ -139,7 +162,7 @@ if(isset($_GET["id"]) && isset($_GET["nameId"])){
 		}
 
 	/*=============================================
-	Error cuando no envía token
+	No token sent
 	=============================================*/	
 
 	}else{

@@ -6,13 +6,13 @@ require_once "get.model.php";
 class PutModel{
 
 	/*=============================================
-	Peticion Put para editar datos de forma dinámica
+	PUT to edit data in any table
 	=============================================*/
 
 	static public function putData($table, $data, $id, $nameId){
 
 		/*=============================================
-		Validar el ID
+		Check the id
 		=============================================*/
 
 		$response = GetModel::getDataFilter($table, $nameId, $nameId, $id, null,null,null,null);
@@ -24,7 +24,7 @@ class PutModel{
 		}
 
 		/*=============================================
-		Actualizamos registros
+		Update the records
 		=============================================*/
 
 		$set = "";
@@ -44,7 +44,15 @@ class PutModel{
 
 		foreach ($data as $key => $value) {
 
-			$stmt->bindParam(":".$key, $data[$key], PDO::PARAM_STR);
+			// an empty string reaches a date column as 0000-00-00
+			if ($data[$key] === "" && SchemaGuard::isDateColumn($table, $key)) {
+
+				$stmt->bindValue(":".$key, null, PDO::PARAM_NULL);
+
+			} else {
+
+				$stmt->bindParam(":".$key, $data[$key], PDO::PARAM_STR);
+			}
 		
 		}
 

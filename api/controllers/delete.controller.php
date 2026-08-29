@@ -5,7 +5,7 @@ require_once "models/delete.model.php";
 class DeleteController{
 
 	/*=============================================
-	Peticion Delete para eliminar datos
+	DELETE to remove data
 	=============================================*/
 
 	static public function deleteData($table, $id, $nameId){
@@ -18,12 +18,22 @@ class DeleteController{
 	}
 
 	/*=============================================
-	Respuestas del controlador
+	Controller responses
 	=============================================*/
 
 	public function fncResponse($response){
 
-		if(!empty($response)){
+		// the row is still referenced, which is not a failure to hide
+		if(isset($response["error"]) && $response["error"] === "in_use"){
+
+			$json = array(
+
+				'status' => 409,
+				'results' => $response["child"] ?? ""
+
+			);
+
+		}else if(!empty($response)){
 
 			$json = array(
 
