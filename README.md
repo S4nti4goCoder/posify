@@ -269,6 +269,11 @@ What is implemented:
 The catalogue images are generated and the brands are invented. They do not
 correspond to any real product or brand.
 
+## License
+
+All rights reserved. The code is published so it can be read and reviewed, not
+reused. See [LICENSE](LICENSE).
+
 ---
 
 ## Author

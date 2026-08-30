@@ -12,6 +12,3 @@ Desktop.ini
 .idea/
 .vscode/
 *.swp
-
-# Capturas de pantalla: material de trabajo, no van al repositorio
-/screenshots/
